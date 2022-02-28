@@ -90,7 +90,7 @@ const out: Command = {
                 let unknown_players: string[] = [];
                 console.log("Teams:", match.teams);
                 await helper.processArray(match.teams, async function(team){
-                    console.log("Team data:", team);
+                    // console.log("Team data:", team);
                     let channel_name = `Team ${team.team} - ${(match as Match).name} (temp)`
                     let parent_id = active_channel.parentId
 
@@ -102,6 +102,7 @@ const out: Command = {
                     );
                     let channel;
                     if (channel_exists) {
+                        console.log("Found existing channel", channel.id, "named", channel_name);
                         channel = channel_exists;
                     } else {
                         channel = await msg.channel.guild.channels.create(channel_name, {
@@ -110,11 +111,6 @@ const out: Command = {
                             parent: parent_id
                         });
                         console.log("Created new channel", channel.id, "named", channel_name);
-                    // } else {
-                    //     msg.reply(`I've found channel ${channel_name} for you, moving you there`);
-                    //     channel = channel_exists;
-                    //     helper.moveUser(client, channel.guild.id, msg.author.id, channel.id);
-                    //     console.log(`Channel ${channel_name} existed, moved ${msg.author.username} straight there.`);
                     }
                     let player_ids = helper.getObjectValues(team.players, 'id')
                     console.log("players to sort into this channel:", player_ids);
@@ -122,13 +118,12 @@ const out: Command = {
                         faf_id: player_ids,
                         guild_id: msg.guild.id
                     }});
-                    console.log("faf users for those players:", faf_users);
+		    // console.log("faf users for those players:", faf_users);
                     team.players.forEach(player => {
                         console.log("player", player);
                         let found = false;
                         // if (faf_users && faf_users.length) {
                         faf_users.forEach(faf_user => {
-                            console.log("... faf_user", faf_user.faf_id, "==", player.id, "?");
                             if ((faf_user.faf_id).toString() == player.id) {
                                 found = true;
                                 helper.moveUser(client, msg.channel.guild.id, msg.author.id, channel.id);
@@ -136,7 +131,7 @@ const out: Command = {
                         });
                         // }
                         if (!found) {
-                            console.log("No database match for player, trying to find name in active channel") 
+                            console.log("No database match for player", player.id, ", trying to find name in active channel") 
                             active_channel.members.forEach(member => {
                                 if (member.displayName.toLowerCase() === player.name.toLowerCase()) {
                                     found = true;
