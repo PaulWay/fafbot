@@ -104,7 +104,8 @@ let getMatch = async match_id => {
                 }
             });
             let url = `https://api.faforever.com/data/player?filter=${query}&page[size]=16`
-            const { data: players } = await axios.get<Player[]>(url);
+            const { data: players_page } = await axios.get<DataPage<Player[]>>(url);
+            const players = players_page.data;
             console.log('players in match', players);
             if (players) {
                 await helper.processArray(players, player => {
