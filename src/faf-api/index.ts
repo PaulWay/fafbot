@@ -24,7 +24,7 @@ let getPlayerCurrentMatch = async player_id => {
     let result;
     try{
         let url = `https://api.faforever.com/data/gamePlayerStats?include=game&filter=player.id==${player_id}&sort=-id&page[size]=1`
-        let res = await axios.get<AxiosResponse<DataPage<GamePlayerStats>>(url)
+        let res = await axios.get<DataPage<GamePlayerStats>>(url)
         console.log('getPlayerCurrentMatch got something...');
         // console.log(res.data.included[0]);
         if (res.data && res.data.included
@@ -74,15 +74,16 @@ interface Team {
 let getMatch = async match_id => {
     try {
         const game_url = `https://api.faforever.com/data/game/${match_id}?include=playerStats,mapVersion`
-        const res = await axios.get<AxiosResponse<Data<GameData>>>(game_url);
+        const res = await axios.get<Data<GameData>>(game_url);
         let map: MapVersionAttributes | undefined;
         const teams: Record<string, Team> = {};
         if (res.data) {
-            let matchData = res.data;
+            let datastruct = res.data;
+            let matchData = datastruct.data;
             console.log('match data:', matchData);
             const id = matchData.id;
             const match = matchData.attributes;
-            const included = res.included;
+            const included = datastruct.included;
             console.log('searched for match id', match_id, 'found match', id);
             let player_in_team = {};
             let query = '';
