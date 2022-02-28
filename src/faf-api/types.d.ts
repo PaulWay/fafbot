@@ -10,8 +10,8 @@ export type PageMeta = {
 
 export interface DataPage<T> {
   data: T;
-  meta: PageMeta;
-  included: FAFObjects[];
+  meta: Meta;
+  included?: FAFObjects[];
 }
 // 
 // interface GameStub {
