@@ -1,5 +1,8 @@
-import axios from 'axios';
-import { Data, Game, MapVersion, MapVersionAttributes, Player, PlayerStub, Validity, VictoryCondition } from './types';
+import axios, { AxiosResponse } from 'axios';
+import { 
+    Data, DataPage, GameData, GamePlayerStats, MapVersion, MapVersionAttributes,
+    Player, PlayerStub, Validity, VictoryCondition
+} from './types';
 import helper from '../common/helper';
 
 export interface Match {
@@ -21,7 +24,7 @@ let getPlayerCurrentMatch = async player_id => {
     let result;
     try{
         let url = `https://api.faforever.com/data/gamePlayerStats?include=game&filter=player.id==${player_id}&sort=-id&page[size]=1`
-        let res = await axios.get(url)
+        let res = await axios.get<DataPage<GamePlayerStats>>(url)
         console.log('getPlayerCurrentMatch got something...');
         // console.log(res.data.included[0]);
         if (res.data && res.data.included
@@ -71,12 +74,16 @@ interface Team {
 let getMatch = async match_id => {
     try {
         const game_url = `https://api.faforever.com/data/game/${match_id}?include=playerStats,mapVersion`
-        const res = await axios.get<Data<Game>>(game_url);
+        const res = await axios.get<Data<GameData>>(game_url);
         let map: MapVersionAttributes | undefined;
         const teams: Record<string, Team> = {};
         if (res.data) {
-            let matchData = res.data;
-            const {attributes: match, id, included} = matchData.data;
+            let datastruct = res.data;
+            let matchData = datastruct.data;
+            console.log('match data:', matchData);
+            const id = matchData.id;
+            const match = matchData.attributes;
+            const included = datastruct.included;
             console.log('searched for match id', match_id, 'found match', id);
             let player_in_team = {};
             let query = '';
@@ -97,7 +104,8 @@ let getMatch = async match_id => {
                 }
             });
             let url = `https://api.faforever.com/data/player?filter=${query}&page[size]=16`
-            const { data: players } = await axios.get<Player[]>(url);
+            const { data: players_page } = await axios.get<DataPage<Player[]>>(url);
+            const players = players_page.data;
             console.log('players in match', players);
             if (players) {
                 await helper.processArray(players, player => {

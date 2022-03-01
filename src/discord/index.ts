@@ -28,7 +28,6 @@ function start(){
     // client.on("guildDelete", eventHandlers.onGuildDelete);
     // client.on("guildMemberAdd", eventHandlers.onGuildMemberAdd);
     // client.on("guildMemberRemove", eventHandlers.onGuildMemberRemove);
-    // console.log("Token:", process.env.DISCORD_TOKEN);
     client.login(process.env.DISCORD_TOKEN);
     client.on('interactionCreate', onInteractionCreate);
 

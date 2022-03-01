@@ -1,19 +1,42 @@
 
 export interface Data<T> {
   data: T;
+  included: FAFObjects[];
 }
 
-interface GameStub {
+export type PageMeta = {
+  page: object;
+}
+
+export interface DataPage<T> {
+  data: T;
+  meta: Meta;
+  included?: FAFObjects[];
+}
+// 
+// interface GameStub {
+//   type: 'game';
+//   id: string;
+// }
+// 
+// export interface Game extends GameStub {
+//   attributes: GameAttributes;
+//   relationships: Relationships;
+//   included: FAFObjects[];
+// }
+
+type FAFObjects = GameData | GamePlayerStats | MapVersion | Player;
+
+export interface Game {
+  data: GameData;
+  included: FAFObjects[];
+}
+
+export interface GameData {
   type: 'game';
   id: string;
-}
-
-type FAFObjects = Game | GamePlayerStats | MapVersion | Player;
-
-export interface Game extends GameStub {
   attributes: GameAttributes;
-  relationships: Relationships;
-  included: FAFObjects[];
+  relationships: GameRelationships;
 }
 
 enum Validity {

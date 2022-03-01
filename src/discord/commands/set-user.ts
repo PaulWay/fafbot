@@ -13,7 +13,7 @@ async function onMessage(msg){
                 msg.reply(`I could not find a FAF login for '${name}'.`);
                 return;
             }
-            user = helper.setFafId(msg.author.id, faf_id, msg.author.guild.id, name);
+            user = helper.setFafId(msg.author.id, faf_id, msg.guildId, name);
             if (user) {
                 msg.reply('Your faf login has been set')
             } else {

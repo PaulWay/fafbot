@@ -5,8 +5,8 @@ const fafUserModel = models.FafUser;
 const guildModel = models.Guild;
 const GuildJoin = models.GuildJoin;
 
-const getFafId = async (discord_author) => {
-    console.log("getFafId(", discord_author.username, ")");
+let getFafId = async (discord_author) => {
+    console.log("getFafId(", discord_author.username, ") user id ", discord_author.id);
     if (discord_author.id == null) {
         return null;
     }
@@ -112,6 +112,7 @@ const processArray = <T>(items: T[], process: (value: T, index?: string) => void
         const fn = () => {
             process(todo.shift() as T);
             if(todo.length > 0) {
+                // @ts-ignore
                 setTimeout(fn, 25);
             } else {
                 resolve();

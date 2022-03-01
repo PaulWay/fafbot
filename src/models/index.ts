@@ -6,12 +6,11 @@ import GuildJoin from './guildjoin';
 
 const config = Config;
 
-
 let sequelize = new Sequelize(config.database, config.username, config.password, config);
 
-const fafUser = FafUser(sequelize)
-const guild = Guild(sequelize)
-const guildJoin = GuildJoin(sequelize)
+const fafUser = FafUser(sequelize);
+const guild = Guild(sequelize);
+const guildJoin = GuildJoin(sequelize);
 
 export default {
     // connection: {
