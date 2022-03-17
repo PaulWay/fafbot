@@ -43,6 +43,21 @@ const setFafId = async (discord_id, faf_id, guild_id, discord_name) => {
         });
     return user_obj;
 }
+
+const getFafIdOrSearch = async (msg) => {
+    let faf_id = await getFafId(msg.author);
+    if (!faf_id) {
+        console.log(`No DB entry for ${msg.author.username} - searching`);
+        faf_id = faf.searchUser(msg.author.username);
+        if (faf_id) {
+            await setFafId(msg.author.id, faf_id, msg.guild.id, msg.author.username);
+        } else {
+            console.log(`Couldn't find FAF username for ${msg.author.username}`);
+            return;
+        }
+    }
+    return faf_id;
+}
 /**
  *
  * @param guild_id
@@ -182,6 +197,7 @@ export default {
     addGuildMembers,
     getFafId: getFafId,
     setFafId: setFafId,
+    getFafIdOrSearch: getFafIdOrSearch,
     processArray: processArray,
     getChannelByName: getChannelByName,
     moveUser: moveUser,

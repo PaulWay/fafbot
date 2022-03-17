@@ -1,9 +1,59 @@
-import faf, { Match } from '../../faf-api';
+import faf, { Match, Team } from '../../faf-api';
 import helper from '../../common/helper';
 import models from '../../models';
 import { Command } from '.';
 import { Client, Message, MessageEmbed, MessageEmbedOptions } from 'discord.js';
 const FafUser = models.FafUser;
+
+function start_match_embed(match) {
+    const team_fields = match.teams.map(team => {
+        return {
+            name: 'Team ' + team.team,
+            value: helper.getObjectValues(team.players, 'name').join('\n'),
+            inline: true
+        }
+    });
+    const main_fields: any[] = [{
+        name: 'Victory Condition',
+        value: match.victoryCondition,
+        inline: true
+    }];
+    if (match.map) {
+        const size = (match.map.width / 51.2) + 'x' + (match.map.height / 51.2);
+        main_fields.push({
+            name: 'Size',
+            value: size,
+            inline: true
+        })
+    }
+    main_fields.push({ name: '\u200B', value: '\u200B' })
+    const report_fields = [...main_fields, ...team_fields];
+    return report_fields
+}
+
+async function create_voice_channel(active_channel, msg: Message, match: Match, team: Team) {
+    const channel_name = `Team ${team.team} - ${match.name} (temp)`
+    let parent_id = active_channel.parentId
+
+    if (! msg.guild) {
+        return
+    }
+    if (msg.guild.id === '657376549108187163' && process.env.CHANNEL_PARENT_ID) {
+        parent_id = process.env.CHANNEL_PARENT_ID
+    }
+    let channel = await active_channel.guild.channels.cache.find(
+        channel => channel.name === channel_name
+    );
+    if (! channel) {
+        channel = await active_channel.guild.channels.create(channel_name, {
+            type: 'GUILD_VOICE',
+            reason: 'temp channel for a FAF game',
+            parent: parent_id
+        });
+        console.log("Created new channel", channel.id, "named", channel_name);
+    }
+    return channel;
+}
 
 const out: Command = {
     name: 'sort',
@@ -30,25 +80,13 @@ const out: Command = {
                 return;
             }
 
-            let faf_id = await helper.getFafId(msg.author);
-            if (!faf_id) {
-                console.log("FAF ID of", msg.author.username, "returned", faf_id, ", searching");
-                faf_id = await faf.searchUser(msg.author.username);
-                if (faf_id) {
-                    await helper.setFafId(msg.author.id, faf_id, msg.guild.id, msg.author.username);
-                } else {
-                    console.log(`Couldn't find FAF username for ${msg.author.username}`);
-                    await msg.reply("I couldn't find your FAF username. Please set it, eg `f/set " + msg.author.username + '`')
-                    return;
-                }
-            }
+            let faf_id = await helper.getFafIdOrSearch(msg);
             if (!faf_id) {
                 console.log(`Couldn't find FAF ID for ${msg.author.username}`);
-                await msg.channel.send("I couldn't find your match");
+                await msg.reply("I couldn't find your FAF username. Please set it, eg `f/set " + msg.author.username + '`')
                 return;
             }
             console.log('searching for last match for ', faf_id);
-            // let bot_promise = msg.channel.send('Tracking your match')
             const player_match = await faf.getPlayerCurrentMatch(faf_id);
             if (player_match) {
                 if (player_match.attributes.endTime !== null) {
@@ -60,67 +98,26 @@ const out: Command = {
                 return;
             }
             let match = await faf.getMatch(player_match.id);
-            if (!(match !== null && match.teams && match.teams.length)) {
-                console.log(`couldn't find match with id ${player_match.id}`);
+            if (match === null) {
+                console.log(`getMatch(${player_match.id}) returned null`)
                 return;
             }
-            match = <Match>match;
-            await msg.channel.send("Hi " + msg.author.username + ", you're in match " + match.name);
+            if (!(match.teams && match.teams.length)) {
+                console.log(`match for ${player_match.id} had no teams? (${match.teams})`);
+                return;
+            }
+            await msg.channel.send(`Hi ${msg.author.username}, you're in match '${match.name}'`);
             console.log('player is in match', match.id, 'name', match.name);
-            let size;
-            if (match.map) {
-                size = (match.map.width / 51.2) + 'x' + (match.map.height / 51.2);
-            }
-            const team_fields = match.teams.map(team => {
-                return {
-                    name: 'Team ' + team.team,
-                    value: helper.getObjectValues(team.players, 'name').join('\n'),
-                    inline: true
-                }
-            });
-            const main_fields: any[] = [{
-                name: 'Victory Condition',
-                value: match.victoryCondition,
-                inline: true
-            }];
-            if (size) {
-                main_fields.push({
-                    name: 'Size',
-                    value: size,
-                    inline: true
-                })
-            }
-            main_fields.push({ name: '\u200B', value: '\u200B' })
-            const report_fields = [...main_fields, ...team_fields];
+            const report_fields = start_match_embed(match);
             const unknown_players: string[] = [];
             console.log("Teams:", match.teams);
             await Promise.allSettled(match.teams.map(async function(team) {
                 // console.log("Team data:", team);
-                const channel_name = `Team ${team.team} - ${(match as Match).name} (temp)`
-                let parent_id = active_channel.parentId
-
-                if (msg.guild.id === '657376549108187163' && process.env.CHANNEL_PARENT_ID) {
-                    parent_id = process.env.CHANNEL_PARENT_ID
+                if (team.team === '0') {
+                    // Team 0 (after deducting 1) is 'not allocated a team' - i.e. FFA
+                    return;
                 }
-                const channel_exists = await msg.channel.guild.channels.cache.find(
-                    channel => channel.name === channel_name
-                );
-                let channel;
-                if (channel_exists) {
-                    channel = channel_exists;
-                } else {
-                    channel = await msg.channel.guild.channels.create(channel_name, {
-                        type: 'GUILD_VOICE',
-                        reason: 'temp channel for a FAF game',
-                        parent: parent_id
-                    });
-                    console.log("Created new channel", channel.id, "named", channel_name);
-                    // } else {
-                    //     msg.reply(`I've found channel ${channel_name} for you, moving you there`);
-                    //     channel = channel_exists;
-                    //     helper.moveUser(client, channel.guild.id, msg.author.id, channel.id);
-                    //     console.log(`Channel ${channel_name} existed, moved ${msg.author.username} straight there.`);
-                }
+                const channel = await create_voice_channel(active_channel, msg, match as Match, team);
                 const player_ids = helper.getObjectValues(team.players, 'id')
                 console.log("players to sort into this channel:", player_ids);
                 const faf_users = await FafUser.findAll({

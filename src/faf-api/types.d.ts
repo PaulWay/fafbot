@@ -1,8 +1,6 @@
-
 interface Meta {
   page: Page;
 }
-
 interface Page {
   number: number;
   limit: number;
@@ -14,21 +12,21 @@ export interface Data<T> {
 }
 
 export interface DataPage<T> {
-  data: T;
+  data: (T)[];
   meta: Meta;
-  included?: FAFObjects[];
+  included: FAFObjects[];
 }
-// 
-// interface GameStub {
-//   type: 'game';
-//   id: string;
-// }
-// 
-// export interface Game extends GameStub {
-//   attributes: GameAttributes;
-//   relationships: Relationships;
-//   included: FAFObjects[];
-// }
+
+interface GameStub {
+  type: 'game';
+  id: string;
+}
+
+export interface Game extends GameStub {
+  attributes: GameAttributes;
+  relationships: Relationships;
+  included: FAFObjects[];
+}
 
 type FAFObjects = GameData | GamePlayerStats | MapVersion | Player;
 
@@ -41,10 +39,10 @@ export interface GameData {
   type: 'game';
   id: string;
   attributes: GameAttributes;
-  relationships: GameRelationships;
+  relationships: Relationships;
 }
 
-enum Validity {
+declare enum Validity {
   VALID,
   TOO_MANY_DESYNCS,
   WRONG_VICTORY_CONDITION,
@@ -73,7 +71,7 @@ enum Validity {
   UNRANKED_BY_HOST,
 } 
 
-enum VictoryCondition {
+declare enum VictoryCondition {
   DEMORALIZATION,
   DOMINATION,
   ERADICATION,
@@ -101,7 +99,7 @@ export interface GamePlayerStats extends GamePlayerStatsStub {
   relationships: Relationships;
 }
 
-enum Result {
+declare enum Result {
   VICTORY,
   DEFEAT,
   DRAW,
@@ -113,7 +111,7 @@ enum Result {
 interface GamePlayerStatsAttributes {
   ai: boolean;
   color: string;
-  faction: 1 | 2 | 3 | 4 | 5 | 6;
+  faction: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   team: number;
   startSpot: number;
   score: number;
@@ -210,11 +208,11 @@ interface Relationships {
   mapVersion?: Data<null|MapVersionStub>;
   reviews?: Data<LeaderboardRatingJournalStub[]>;
   reviewsSummary?: Data<null>;
-  avatarAssignments?: Data<Never[]>;
-  bans?: Data<Never[]>;
-  userNotes?: Data<Never[]>;
+  avatarAssignments?: Data<any[]>;
+  bans?: Data<any[]>;
+  userNotes?: Data<any[]>;
   names?: Data<NameRecordStub[]>;
   ladder1v1Rating?: Data<Ladder1v1RatingStub>;
   globalRating?: Data<GlobalRatingStub>;
-  clanMembershipStub?: Data<ClanMembershipStubStub>;
+  clanMembershipStub?: Data<ClanMembershipStub>;
 }

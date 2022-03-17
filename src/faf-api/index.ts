@@ -5,6 +5,14 @@ import {
 } from './types';
 import helper from '../common/helper';
 
+export interface Team {
+    team: string;
+    players: {
+        id: string;
+        name: string;
+    }[];
+}
+
 export interface Match {
     id: string;
     map: MapVersionAttributes | undefined;
@@ -19,13 +27,12 @@ export interface Match {
     victoryCondition: VictoryCondition;
 }
 
-let getPlayerCurrentMatch = async player_id => {
+let getPlayerCurrentMatch = async (player_id: number) => {
     // Actually gets the most recent match, which might be ended.
     let result;
     try{
         let url = `https://api.faforever.com/data/gamePlayerStats?include=game&filter=player.id==${player_id}&sort=-id&page[size]=1`
         let res = await axios.get<DataPage<GamePlayerStats>>(url)
-        console.log('getPlayerCurrentMatch got something...');
         // console.log(res.data.included[0]);
         if (res.data && res.data.included
             && res.data.included[0]
@@ -59,19 +66,11 @@ let searchUser = async (term): Promise<number> => {
     return result;
 }
 
-interface Team {
-    team: string;
-    players: {
-        id: string;
-        name: string;
-    }[];
-}
-
 /**
  * Get a match from the api
  * @param match_id
  */
-let getMatch = async match_id => {
+let getMatch = async (match_id: string): Promise<Match|null> => {
     try {
         const game_url = `https://api.faforever.com/data/game/${match_id}?include=playerStats,mapVersion`
         const res = await axios.get<Data<GameData>>(game_url);
@@ -104,7 +103,7 @@ let getMatch = async match_id => {
                 }
             });
             let url = `https://api.faforever.com/data/player?filter=${query}&page[size]=16`
-            const { data: players_page } = await axios.get<DataPage<Player[]>>(url);
+            const { data: players_page } = await axios.get<DataPage<Player>>(url);
             const players = players_page.data;
             console.log('players in match', players);
             if (players) {
