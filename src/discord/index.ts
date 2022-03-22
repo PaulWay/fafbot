@@ -9,7 +9,7 @@ const client = new Client({intents: [
 ]});
 
 
-function start(){
+const start = async () => {
 
     client.on('ready', async () => {
         if (client.user === null) {
@@ -18,7 +18,11 @@ function start(){
         }
         console.log(`Logged in as ${client.user.tag}!`);
         // const channel = client.channels.cache.get("720187277355122769");
-        await Promise.all((await client.guilds.fetch()).map((guildId) => register(config.clientId, guildId.id)));
+        await Promise.all(
+            (await client
+                .guilds
+                .fetch())
+                  .map(async (guildId) => await register(config.clientId, guildId.id)));
     });
     client.on('messageCreate', onMessage);
     client.on('voiceStateUpdate', onVoiceStateUpdate);
@@ -27,7 +31,7 @@ function start(){
     // client.on("guildDelete", eventHandlers.onGuildDelete);
     // client.on("guildMemberAdd", eventHandlers.onGuildMemberAdd);
     // client.on("guildMemberRemove", eventHandlers.onGuildMemberRemove);
-    client.login(process.env.DISCORD_TOKEN);
+    await client.login(process.env.DISCORD_TOKEN);
 
 }
 
