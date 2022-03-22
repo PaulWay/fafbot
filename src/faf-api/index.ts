@@ -36,7 +36,7 @@ let getPlayerCurrentMatch = async player_id => {
             console.log("... found match", result.id, "named", result.attributes.name);
         }
     } catch (e) {
-        console.log('err in searchUser', e);
+        console.log('err in getPlayerCurrentMatch', e);
     }
     if (result) {
         console.log('getPlayerCurrentMatch(', player_id, ') returns match with id', result.id, 'name', result.attributes.name);
