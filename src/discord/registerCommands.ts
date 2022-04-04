@@ -6,21 +6,14 @@ import commands, { Command } from './commands';
 
 const rest = new REST({ version: '9' }).setToken(config.discordToken);
 
-const buildSlash = (appCommands: `/applications/${string}/guilds/${string}/commands`) => async ({name, description}: Command) => {
-  await rest.put(
-    appCommands,
-    {
-      body: new SlashCommandBuilder()
-        .setName(name)
-        .setDescription(description)
-        .toJSON(),
-    },
-  );
-}
+const buildSlash = () => async ({name, description}: Command) => new SlashCommandBuilder()
+  .setName(name)
+  .setDescription(description)
+  .toJSON();
 
 const register = async (clientId: string, guildId: string) => {
-  const appCommands = Routes.applicationGuildCommands(clientId, guildId);
-  await Promise.all(commands.map(buildSlash(appCommands)));
+  const messages = commands.map(buildSlash());
+  await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: messages })
   console.log('registered commands');
 }
 

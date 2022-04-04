@@ -71,7 +71,7 @@ interface Team {
  * Get a match from the api
  * @param match_id
  */
-let getMatch = async match_id => {
+const getMatch = async (match_id): Promise<Match | null> => {
     try {
         const game_url = `https://api.faforever.com/data/game/${match_id}?include=playerStats,mapVersion`
         const res = await axios.get<Data<GameData>>(game_url);
