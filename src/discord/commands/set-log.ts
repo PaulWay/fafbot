@@ -28,10 +28,10 @@ async function onMessage(client: Client, guild: Guild, send: (message: string | 
 }
 
 const out: Command = {
-    name: 'log here',
+    name: 'log-here',
     description: 'Set the log channel for matches',
     check: content => {
-        return content.match(/^log here/)
+        return content.match(/^log-here/)
     },
     help: '',
     run: onMessage
