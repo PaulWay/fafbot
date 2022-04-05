@@ -2,7 +2,7 @@ import helper from '../common/helper';
 import commands from './commands';
 import models from '../models';
 import Sequelize from 'sequelize';
-import { CacheType, Guild, GuildMember, Interaction, Message, MessageComponentInteraction, MessageEmbed, VoiceState } from 'discord.js';
+import { CacheType, Channel, Guild, GuildMember, Interaction, Message, MessageComponentInteraction, MessageEmbed, VoiceState } from 'discord.js';
 
 const GuildJoin = models.GuildJoin
 const Op = Sequelize.Op;
@@ -174,5 +174,5 @@ export const onInteractionCreate = async (interaction: Interaction<CacheType>): 
         return;
     }
     console.log(`message content is: '${interaction.commandName}'`);
-    command[0].run(interaction.client, interaction.guild, interaction.followUp, `${interaction.commandName} ${interaction.options.data.toString()}`, channel)
+    command[0].run(interaction.client, interaction.guild, interaction.followUp, `${interaction.commandName} ${interaction.options.data.toString()}`, interaction.channel as Channel)
 }

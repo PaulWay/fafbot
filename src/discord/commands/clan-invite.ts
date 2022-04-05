@@ -11,7 +11,7 @@ async function onMessage(client: Client, guild: Guild, send: (message: string | 
     try{
         await send("Clan invite need to be generated manually now. <@401536987326185472> will generate you one.")
         return;
-        let name_result = msg.content.match(/^f\/clan(.+)/)
+        const name_result = content.match(/^f\/clan(.+)/) as RegExpExecArray;
         if (name_result && name_result[1]) {
             name = name_result[1].trim();
             await (async () => {
@@ -43,18 +43,18 @@ async function onMessage(client: Client, guild: Guild, send: (message: string | 
                 await clanUserEl.type(name);
                 await clanUserEl.press('Enter');
                 await page2.waitForNavigation();
-                let url = page2.url();
+                const url = page2.url();
 
                 let failed = true;
                 if (url.indexOf('invitation') !== -1) {
-                    let invitation_id = url.match(/invitation_id=(.+)/)
+                    const invitation_id = url.match(/invitation_id=(.+)/)
                     if (invitation_id && invitation_id[1]) {
-                        msg.reply(`Here's your invite link. Click it and let us know when you've done it so we can assign your @ANZFAF Clan role. https://www.faforever.com/clans/accept?i=${invitation_id[1]}`);
+                        await send(`Here's your invite link. Click it and let us know when you've done it so we can assign your @ANZFAF Clan role. https://www.faforever.com/clans/accept?i=${invitation_id[1]}`);
                         failed = false
                     }
                 }
                 if (failed) {
-                    msg.reply('There was a problem generating an invite for `' + name + '` please check that username is correct, otherwise maybe @antz needs to generate one manually.')
+                    await send('There was a problem generating an invite for `' + name + '` please check that username is correct, otherwise maybe @antz needs to generate one manually.')
                 }
 
                 await browser.close();
@@ -63,8 +63,8 @@ async function onMessage(client: Client, guild: Guild, send: (message: string | 
     } catch (e) {
         console.log('clan error', {
             name,
-            author: msg.author.id,
-            guild: msg.guild.id
+            author: client.user?.id ?? '',
+            guild: guild.id
         }, e)
     }
 }
