@@ -1,18 +1,15 @@
 
 import Apify from 'apify';
+import { Client, Guild, MessagePayload, InteractionReplyOptions } from 'discord.js';
 import { Command } from '.';
 
-async function onMessage(msg){
+async function onMessage(client: Client, guild: Guild, send: (message: string | MessagePayload | InteractionReplyOptions) => Promise<any>, content: string){
     // TODO make it work for multiple clans..
     // right now the username and password of the clan leader must be stored in the .env.
     // It could potentially be stored in the DB but with decent encryption. Not sure about that..
-    if (parseInt(msg.guild.id) !== 657376549108187163) {
-        msg.reply('This command is not available for this discord server.');
-        return;
-    }
     let name;
     try{
-        msg.reply("Clan invite need to be generated manually now. <@401536987326185472> will generate you one.")
+        await send("Clan invite need to be generated manually now. <@401536987326185472> will generate you one.")
         return;
         let name_result = msg.content.match(/^f\/clan(.+)/)
         if (name_result && name_result[1]) {

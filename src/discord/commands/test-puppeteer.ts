@@ -2,22 +2,23 @@
 import Apify from 'apify';
 import { Command } from '.';
 import fs from 'fs';
+import { Client, Guild, MessagePayload, InteractionReplyOptions, Channel } from 'discord.js';
 
-async function onMessage(msg){
+async function onMessage(client: Client, guild: Guild, send: (message: string | MessagePayload | InteractionReplyOptions) => Promise<any>, content: string, channel: Channel){
     let name;
-    const handleException = e => {
+    const handleException = async e => {
         console.log('Exception: ', e)
         if (typeof e === 'string') {
-            msg.reply('Exception: ' + e);
+            await send('Exception: ' + e);
         } else if (typeof e === 'object' && typeof e.toString === 'function'){
-            msg.reply('Exception: ' + e.toString());
+            await send('Exception: ' + e.toString());
         } else {
-            msg.reply('Caught Exception..');
+            await send('Caught Exception..');
         }
     }
     const takeScreenshot = async (page, message) => {
         await page.screenshot({path: 'clan.png'});
-        await msg.reply(message, {files: ['./clan.png']});
+        await send({files: ['./clan.png'], content: message});
         fs.unlinkSync('./clan.png');
     }
 
@@ -26,17 +27,17 @@ async function onMessage(msg){
 
             try {
 
-                msg.reply('Launching...');
+                await send('Launching...');
                 const browser = await Apify.launchPuppeteer({
                     launchOptions: {
                         headless: true,
                         args: ['--no-sandbox']
                     }
                 });
-                msg.reply('Loading faforever.com');
+                await send('Loading faforever.com');
                 const page = await browser.newPage();
                 await page.goto('https://faforever.com/login');
-                msg.reply('Loaded. Now entering login details');
+                await send('Loaded. Now entering login details');
                 const usernameEl = await page.$('#usernameOrEmail');
                 if (!usernameEl) {
                     throw "Can't find username field."
@@ -64,7 +65,7 @@ async function onMessage(msg){
                 // Use cookies in other tab or browser
                 const page2 = await browser.newPage();
                 if (!page2) {
-                    await msg.reply('Error: couldn\'t load clan manage page');
+                    await send('Error: couldn\'t load clan manage page');
                     return;
                 }
                 await page2.setCookie(...cookies);
@@ -72,7 +73,7 @@ async function onMessage(msg){
                 await takeScreenshot(page, 'Clan management page: ');
                 const clanUserEl = await page2.$('[name="invited_player"]');
                 if (!clanUserEl) {
-                    await msg.reply('Error: couldn\'t load find invite field');
+                    await send('Error: couldn\'t load find invite field');
                     return;
                 }
                 await takeScreenshot(page, 'Clan management page: ');
@@ -83,11 +84,11 @@ async function onMessage(msg){
                 await takeScreenshot(page, 'Done? ');
                 await browser.close();
             }catch (e) {
-                handleException(e)
+                await handleException(e)
             }
         })();
     } catch (e) {
-        handleException(e)
+        await handleException(e)
     }
 }
 

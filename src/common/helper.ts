@@ -1,4 +1,4 @@
-import { Client, Collection, Guild, GuildMember, Message, MessageEmbed } from 'discord.js';
+import { Client, Collection, Guild, GuildMember, InteractionReplyOptions, Message, MessageEmbed, MessagePayload } from 'discord.js';
 import models from '../models';
 import { GuildAttributes } from '../models/guild';
 const fafUserModel = models.FafUser;
@@ -50,17 +50,14 @@ const setFafId = async (discord_id, faf_id, guild_id, discord_name) => {
  * @param context Message|Presence
  * @returns {Promise<boolean|Message|Array<Message>>}
  */
- const sendLog = async (guild_id, message: string | MessageEmbed, context: Message<true>) => {
-    if (typeof context === 'object' && context.client) {
-        const guild_db = await guildModel.findOne({where: {guild_id}})
-        const guild = context.guild ? context.guild : context.client.guilds.resolve(guild_id);
+ const sendLog = async (guild: Guild, message: string | MessageEmbed,  send: (message: string | MessagePayload | InteractionReplyOptions) => Promise<any>) => {
+    if (guild.client) {
+        const guild_db = await guildModel.findOne({where: {guild_id: guild.id}})
         if (guild && guild_db && guild_db.match_log_channel_id) {
             const channel = guild.channels.cache.find(ch => ch.id === (guild_db as GuildAttributes).match_log_channel_id)
             if (channel && channel.type === 'GUILD_TEXT') {
                 return channel.send(message.toString());
             }
-        } else if (guild && context.channel && context.channel.type === 'GUILD_TEXT') {
-            return context.channel.send(message.toString())
         }
     }
     return false;
@@ -159,6 +156,27 @@ const getUserActiveVoiceChannel = async (msg: Message<true>) => {
     });
     return channel;
 }
+/**
+ *
+ * @param msg
+ * @returns {Promise<Channel>}
+ */
+const getGuildActiveVoiceChannel = async (guild: Guild, id: string) => {
+    let channel;
+    guild.channels.cache.forEach((ch) => {
+        const {members, type, name} = ch;
+        // 'Saipier' as a channel?
+        if (!(members as Collection<string, GuildMember>).hasAny) {
+            return;
+        }
+        const has_member = (members as Collection<string, GuildMember>).hasAny(id);
+        if (type === 'GUILD_VOICE' && has_member) {
+            console.log('in channel', name);
+            channel = ch;
+        }
+    });
+    return channel;
+}
 
 const moveUser = async (client: Client, guild_id, user_id, voice_channel_id): Promise<void> => {
     console.log('moving user', user_id, 'in guild', guild_id, 'to voice channel', voice_channel_id);
@@ -187,4 +205,5 @@ export default {
     moveUser: moveUser,
     getUserActiveVoiceChannel: getUserActiveVoiceChannel,
     getObjectValues: getObjectValues,
+    getGuildActiveVoiceChannel,
 }

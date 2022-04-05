@@ -5,7 +5,7 @@ import sort from "./sort";
 import invite from "./invite";
 import clanInvite from "./clan-invite";
 import testPuppeteer from "./test-puppeteer";
-import { Message, CacheType, MessageComponentInteraction, Client } from "discord.js";
+import { Message, Client, Guild, InteractionReplyOptions, MessagePayload, Channel } from "discord.js";
 
 
 const out = [
@@ -23,7 +23,7 @@ export interface Command {
     help: string;
     description: string;
     check: (content: string, msg?: Message) => any;
-    run: (msg: Message<true>, client: Client) => any;
+    run: (client: Client, guild: Guild, send: (message: string | MessagePayload | InteractionReplyOptions) => Promise<any>, content: string, channel: Channel) => any;
 }
 
 export default out;

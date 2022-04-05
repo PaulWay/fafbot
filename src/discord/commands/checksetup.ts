@@ -1,21 +1,26 @@
+import { Client, MessagePayload, InteractionReplyOptions, Guild } from 'discord.js';
 import { Command } from '.';
 import helper from '../../common/helper';
 import models from '../../models';
-const Guild = models.Guild;
+const GuildModel = models.Guild;
 
-async function onMessage(msg, client){
+async function onMessage(client: Client, guild: Guild, send: (message: string | MessagePayload | InteractionReplyOptions) => Promise<any>, content: string) {
     try {
-        if (!msg.member.permissions.has('ADMINISTRATOR')) {
-            return msg.reply("You must be an admin to run that.")
+        if (!client.user) {
+            console.error('no user');
+            return;
+        }
+        if (!(await guild.members.fetch(client.user)).permissions.has('ADMINISTRATOR')) {
+            return await send("You must be an admin to run that.")
         } else {
-            let guild = await Guild.findOne({where: {guild_id: msg.guild.id}});
-            if (!guild) {
-                guild = await helper.findOrCreateGuild(msg.guild);
+            let guildModel = await GuildModel.findOne({where: {guild_id: guild.id}});
+            if (!guildModel) {
+                guildModel = await helper.findOrCreateGuild(guild);
             }
-            let guild_added = guild ? 'yes' : 'no'
-            let added = await helper.addGuildMembers(msg.guild);
-            let message = `Guild added: ${guild_added} \n Member Joins added: ${added}`
-            msg.reply(message)
+            const guild_added = guildModel ? 'yes' : 'no'
+            const added = await helper.addGuildMembers(guild);
+            const message = `Guild added: ${guild_added} \n Member Joins added: ${added}`
+            await send(message)
         }
     } catch (e) {
         console.log('err in listen command: ', e);

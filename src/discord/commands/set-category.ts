@@ -1,41 +1,45 @@
-import { Message } from 'discord.js';
+import { Client, Guild, InteractionReplyOptions, Message, MessagePayload } from 'discord.js';
 import { Command } from '.';
 import faf from '../../faf-api';
 import models from '../../models';
 const FafUser = models.FafUser;
 
-async function onMessage(msg: Message<true>){
-    let name_result = msg.content.match(/^f\/set(.+)/)
+async function onMessage(client: Client, guild: Guild, send: (message: string | MessagePayload | InteractionReplyOptions) => Promise<any>, content: string){
+    const name_result = content.match(/^f\/set(.+)/)
     if (name_result && name_result[1]) {
-        let name = name_result[1].trim();
-        let faf_id = await faf.searchUser(name);
+        const name = name_result[1].trim();
+        const faf_id = await faf.searchUser(name);
         let user;
         if (faf_id) {
+            if (!client.user) {
+                console.error('cannot find user');
+                return;
+            }
             user = await FafUser.findOne({ where: {
-                    discord_id: msg.author.id,
-                    guild_id: msg.guild.id
+                    discord_id: client.user.id,
+                    guild_id: guild.id,
                 }});
             if (user) {
                 user.update({
-                    discord_id: msg.author.id,
-                    guild_id: msg.guild.id,
+                    discord_id: client.user.id,
+                    guild_id: guild.id,
                     faf_id: faf_id
                 })
             } else {
                 user = await FafUser.create({
-                    discord_id: msg.author.id,
-                    guild_id: msg.guild.id,
+                    discord_id: client.user.id,
+                    guild_id: guild.id,
                     faf_id: faf_id,
                     discord_username: '',
                 });
             }
             if (user) {
-                msg.reply('Your faf login has been set')
+                await send('Your faf login has been set')
             } else {
-                msg.reply('There was a problem saving your login')
+                await send('There was a problem saving your login')
             }
         } else {
-            msg.reply('I could not find your faf login.')
+            await send('I could not find your faf login.')
         }
     }
 }
