@@ -6,13 +6,13 @@ import commands, { Command } from './commands';
 
 const rest = new REST({ version: '9' }).setToken(config.discordToken);
 
-const buildSlash = () => async ({name, description}: Command) => new SlashCommandBuilder()
+const buildSlash = ({name, description}: Command) => new SlashCommandBuilder()
   .setName(name)
   .setDescription(description)
   .toJSON();
 
 const register = async (clientId: string, guildId: string) => {
-  const messages = commands.map(buildSlash());
+  const messages = commands.map(buildSlash);
   await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: messages })
   console.log('registered commands');
 }
