@@ -165,10 +165,11 @@ export const checkHelp = async (msg: Message) => {
 }
 
 export const onInteractionCreate = async (interaction: Interaction<CacheType>): Promise<void> => {
-    
+    console.log('command received:', interaction.member?.user.username, interaction.isCommand())
     if (!interaction.isCommand()) {
         return;
     }
+    console.log('command:', interaction.commandName);
     const command = commands.filter((command) => command.name === interaction.commandName);
     if (command.length === 0 || !interaction.guild) {
         return;
