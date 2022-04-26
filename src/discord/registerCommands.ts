@@ -12,7 +12,7 @@ const buildSlash = ({name, description}: Command) => new SlashCommandBuilder()
   .toJSON();
 
 const register = async (clientId: string, guildId: string) => {
-  const messages = commands.map(buildSlash);
+  const messages = commands.filter(cmd => cmd.name !== 'test-puppeteer').map(buildSlash);
   await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: messages })
   console.log('registered commands');
 }

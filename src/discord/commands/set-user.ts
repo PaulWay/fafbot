@@ -1,23 +1,28 @@
 import faf from '../../faf-api';
 import helper from '../../common/helper';
 import { Command } from '.';
+import { Client, Guild, MessagePayload, InteractionReplyOptions } from 'discord.js';
 
-async function onMessage(msg){
+async function onMessage(client: Client, guild: Guild, send: (message: string | MessagePayload | InteractionReplyOptions) => Promise<any>, content: string){
     let faf_id,name,user;
     try{
-        let name_result = msg.content.match(/^f\/set(.+)/)
+        if (!client.user) {
+            console.error('cannot find user');
+            return;
+        }
+        const name_result = content.match(/^f\/set(.+)/)
         if (name_result && name_result[1]) {
             name = name_result[1].trim();
             faf_id = await faf.searchUser(name);
             if (! faf_id) {
-                msg.reply(`I could not find a FAF login for '${name}'.`);
+                await send(`I could not find a FAF login for '${name}'.`);
                 return;
             }
-            user = helper.setFafId(msg.author.id, faf_id, msg.guildId, name);
+            user = helper.setFafId(client.user.id, faf_id, guild.id, name);
             if (user) {
-                msg.reply('Your faf login has been set')
+                await send('Your faf login has been set')
             } else {
-                msg.reply('There was a problem saving your login')
+                await send('There was a problem saving your login')
             }
         }
     } catch (e) {
@@ -25,8 +30,8 @@ async function onMessage(msg){
             faf_id,
             name,
             user,
-            author: msg.author.id,
-            guild: msg.guild.id
+            author: client.user?.id,
+            guild: client.user?.id
         }, e)
     }
 }

@@ -2,7 +2,7 @@ import helper from '../common/helper';
 import commands from './commands';
 import models from '../models';
 import Sequelize from 'sequelize';
-import { CacheType, Guild, GuildMember, Interaction, Message, MessageComponentInteraction, MessageEmbed, VoiceState } from 'discord.js';
+import { CacheType, Channel, Guild, GuildMember, Interaction, Message, MessageComponentInteraction, MessageEmbed, VoiceState } from 'discord.js';
 
 const GuildJoin = models.GuildJoin
 const Op = Sequelize.Op;
@@ -22,7 +22,7 @@ export const onVoiceStateUpdate = async (oldThing: VoiceState, _: VoiceState) =>
         }
         console.log("VoiceStateUpdate: deleting channel", oldThing.channel.id, 'name', oldThing.channel.name);
         try {
-            oldThing.channel.delete();
+            await oldThing.channel.delete();
         } catch (e) {
             console.log('Error on deleting channel', oldThing.channel.id, ':', e);
         }
@@ -36,7 +36,7 @@ export const onGuildMemberAdd = async (member: GuildMember) => {
                 console.error('member has no timestamp', member.nickname);
                 return;
             }
-            let data = {
+            const data = {
                 join_date: new Date(member.joinedTimestamp),
                 discord_id: member.user.id,
                 guild_id: member.guild.id,
@@ -49,7 +49,7 @@ export const onGuildMemberAdd = async (member: GuildMember) => {
 }
 export const onGuildMemberRemove = async (member: GuildMember) => {
     try{
-        let mem = await GuildJoin.findOne({
+        const mem = await GuildJoin.findOne({
             where: {
                 discord_id: member.user.id,
                 guild_id: member.guild.id,
@@ -61,9 +61,9 @@ export const onGuildMemberRemove = async (member: GuildMember) => {
             // order: 'join_date desc'
         })
         if (mem) {
-            let leave_date = new Date()
+            const leave_date = new Date()
             mem.set({leave_date});
-            mem.save();
+            await mem.save();
         }
     } catch (e) {
         console.log('error in onGuildCreate', e)
@@ -72,7 +72,7 @@ export const onGuildMemberRemove = async (member: GuildMember) => {
 export const onGuildCreate = async (guild: Guild) => {
     try{
         console.log("Joined a new guild: " + guild.name);
-        let db_guild = await helper.findOrCreateGuild(guild)
+        const db_guild = await helper.findOrCreateGuild(guild)
         await helper.addGuildMembers(guild)
         console.log('Members added to DB')
     } catch (e) {
@@ -82,7 +82,7 @@ export const onGuildCreate = async (guild: Guild) => {
 export const onGuildDelete = async (guild: Guild) => {
     try{
         console.log("Joined a new guild: " + guild.name);
-        let db_guild = await helper.findOrCreateGuild(guild)
+        const db_guild = await helper.findOrCreateGuild(guild)
         await helper.addGuildMembers(guild)
         console.log('Members added to DB')
     } catch (e) {
@@ -96,15 +96,15 @@ export const onMessage = async (msg: Message) => {
         const now = new Date();
         console.log(now.toLocaleString("en-AU"), ': received', msg.content, 'from:', msg.author.username);
         let done = false;
-        helper.processArray(commands, function(command){
+        await helper.processArray(commands, function(command){
             if (done) return;  // ``
-            if (!msg.content) return;
+            if (!msg.content || !msg.guild) return;
             const matched = msg.content.match(/^f\/(.+)/);
             if (!matched || matched.length < 2) return;
-            let content = matched[1]; 
+            const content = matched[1]; 
             if (command.check(content, msg)) {
                 console.log(content, 'command matched');
-                command.run(msg as Message<true>, msg.client);
+                command.run( msg.client, msg.guild, msg.channel.send, msg.content, (msg as Message<true>).channel);
                 done = true;
             }
         });
@@ -118,12 +118,12 @@ export const checkHelp = async (msg: Message) => {
         if (! msg.content.match(/^f\/help(.+)?/)) {
             return false;
         }
-        let messages: string[] = [];
-        let commandCheck = msg.content.match(/^f\/help(.+)/)
-        let userCommand = commandCheck && commandCheck[1] ? commandCheck[1].trim() : null;
+        const messages: string[] = [];
+        const commandCheck = msg.content.match(/^f\/help(.+)/)
+        const userCommand = commandCheck && commandCheck[1] ? commandCheck[1].trim() : null;
         let command_help;
         await helper.processArray(commands, (command) => {
-            let is_command_valid = command && command.description && command.help && command.name
+            const is_command_valid = command && command.description && command.help && command.name
             if (is_command_valid) {
                 if (command.name === userCommand) {
                     command_help = command;
@@ -137,27 +137,27 @@ export const checkHelp = async (msg: Message) => {
                 }
             }
         });
-        let embed = new MessageEmbed().setTimestamp().setColor('#DDCC00');
+        const embed = new MessageEmbed().setTimestamp().setColor('#DDCC00');
         console.log(`help (command help is ${command_help})`);
         if (userCommand) {
             if (!command_help) {
-                msg.channel.send("Couldn't find command '" + userCommand + "'");
+                await msg.channel.send("Couldn't find command '" + userCommand + "'");
                 return true;
             } else {
-                msg.channel.send("Command help: " + command_help.help);
+                await msg.channel.send("Command help: " + command_help.help);
                 return true;
                 embed.setTitle('Command help - ' + command_help.name);
                 embed.setDescription(command_help.help);
             }
         } else {
-            msg.channel.send("Available commands: " + messages.join(', '));
+            await msg.channel.send("Available commands: " + messages.join(', '));
             return true;
             embed.setTitle('Available commands');
             embed.setDescription('All the available commands are below. For more info on each command use the help command\n eg: `f/help set`');
             // embed.addFields(messages);
         }
         // console.log('Channel permissions for bot:', msg.channel.permissionsFor(msg.guild.me).toArray());
-        msg.channel.send({ embeds: [embed] });
+        await msg.channel.send({ embeds: [embed] });
         return true;
     } catch (e) {
         console.warn(e)
@@ -165,14 +165,15 @@ export const checkHelp = async (msg: Message) => {
 }
 
 export const onInteractionCreate = async (interaction: Interaction<CacheType>): Promise<void> => {
-    
-    if (!interaction.isCommand() || !interaction.isMessageComponent()) {
+    console.log('command received:', interaction.member?.user.username, interaction.isCommand())
+    if (!interaction.isCommand()) {
         return;
     }
+    console.log('command:', interaction.commandName);
     const command = commands.filter((command) => command.name === interaction.commandName);
-    if (command.length === 0) {
+    if (command.length === 0 || !interaction.guild) {
         return;
     }
-    console.log(`message content is: '${interaction.message.content}'`);
-    command[0].run(interaction.message as Message<true>, interaction.client);
+    console.log(`message content is: '${interaction.commandName}'`);
+    command[0].run(interaction.client, interaction.guild, interaction.followUp, `${interaction.commandName} ${interaction.options.data.toString()}`, interaction.channel as Channel)
 }

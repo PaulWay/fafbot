@@ -1,20 +1,17 @@
 
 import Apify from 'apify';
+import { Client, Guild, MessagePayload, InteractionReplyOptions } from 'discord.js';
 import { Command } from '.';
 
-async function onMessage(msg){
+async function onMessage(client: Client, guild: Guild, send: (message: string | MessagePayload | InteractionReplyOptions) => Promise<any>, content: string){
     // TODO make it work for multiple clans..
     // right now the username and password of the clan leader must be stored in the .env.
     // It could potentially be stored in the DB but with decent encryption. Not sure about that..
-    if (parseInt(msg.guild.id) !== 657376549108187163) {
-        msg.reply('This command is not available for this discord server.');
-        return;
-    }
     let name;
     try{
-        msg.reply("Clan invite need to be generated manually now. <@401536987326185472> will generate you one.")
+        await send("Clan invite need to be generated manually now. <@401536987326185472> will generate you one.")
         return;
-        let name_result = msg.content.match(/^f\/clan(.+)/)
+        const name_result = content.match(/^f\/clan(.+)/) as RegExpExecArray;
         if (name_result && name_result[1]) {
             name = name_result[1].trim();
             await (async () => {
@@ -46,18 +43,18 @@ async function onMessage(msg){
                 await clanUserEl.type(name);
                 await clanUserEl.press('Enter');
                 await page2.waitForNavigation();
-                let url = page2.url();
+                const url = page2.url();
 
                 let failed = true;
                 if (url.indexOf('invitation') !== -1) {
-                    let invitation_id = url.match(/invitation_id=(.+)/)
+                    const invitation_id = url.match(/invitation_id=(.+)/)
                     if (invitation_id && invitation_id[1]) {
-                        msg.reply(`Here's your invite link. Click it and let us know when you've done it so we can assign your @ANZFAF Clan role. https://www.faforever.com/clans/accept?i=${invitation_id[1]}`);
+                        await send(`Here's your invite link. Click it and let us know when you've done it so we can assign your @ANZFAF Clan role. https://www.faforever.com/clans/accept?i=${invitation_id[1]}`);
                         failed = false
                     }
                 }
                 if (failed) {
-                    msg.reply('There was a problem generating an invite for `' + name + '` please check that username is correct, otherwise maybe @antz needs to generate one manually.')
+                    await send('There was a problem generating an invite for `' + name + '` please check that username is correct, otherwise maybe @antz needs to generate one manually.')
                 }
 
                 await browser.close();
@@ -66,8 +63,8 @@ async function onMessage(msg){
     } catch (e) {
         console.log('clan error', {
             name,
-            author: msg.author.id,
-            guild: msg.guild.id
+            author: client.user?.id ?? '',
+            guild: guild.id
         }, e)
     }
 }

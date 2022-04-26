@@ -1,14 +1,15 @@
 import { Command } from ".";
 
-const permManager = require('discord-permissions')
+import permManager from 'discord-permissions';
+import { Client, Guild, MessagePayload, InteractionReplyOptions } from "discord.js";
 
 /**
  *
  * @param msg
  * @returns {Promise<void>}
  */
-async function onMessage(msg){
-    let perms = [
+async function onMessage(client: Client, guild: Guild, send: (message: string | MessagePayload | InteractionReplyOptions) => Promise<any>){
+    const perms = [
         /** --------/ General /----* */
         // 'Administrator',
         // 'View Audit Log',
@@ -43,11 +44,11 @@ async function onMessage(msg){
         // 'Use Voice Activity',
         // 'Priority Speaker',
     ];
-    let client_id = process.env.DISCORD_CLIENT_ID;
+    const client_id = process.env.DISCORD_CLIENT_ID;
     console.log('check key', client_id, client_id.match(/[0-9]{16,20}/))
-    let link = permManager.generateInvite(client_id, perms);
+    const link = permManager.generateInvite(client_id, perms);
     console.log(link);
-    msg.reply(link)
+    await send(link);
 }
 
 const out: Command = {
