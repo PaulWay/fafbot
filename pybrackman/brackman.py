@@ -1,0 +1,276 @@
+import asyncio
+import discord
+from discord.ext import commands
+import logging
+from typing import Optional
+import yaml
+
+from faf_lib import (
+    faf_get_id_for_user, faf_get_last_game_for_faf_id,
+    init_oauth_config
+)
+from db_lib import db_get_user, db_get_users, db_set_user
+
+logging.basicConfig(level=logging.INFO)
+
+intents = discord.Intents.default()
+intents.message_content = True
+
+
+def read_config(config_filename):
+    """
+    Return the YAML dictionary of the full config
+    """
+    fh = open(config_filename, 'r')
+    full_config = yaml.load(fh, Loader=yaml.Loader)
+    fh.close()
+    return full_config
+
+
+game = {
+    'name': 'ANZ FAF MapGen',
+    'map': {
+    },
+    'teams': 2,
+    'players': {  # indexed by faf_id for fast database lookup
+        129182: {
+            'name': 'PaulWay', 'team': 1
+        },
+        203724: {
+            'name': 'crenn6977', 'team': 2
+        }
+    }
+}
+
+# file_log = logging.FileHandler(filename='brackman.log', encoding='utf-8')
+# logger = logging.getLogger('brackman')
+# logging.addHandler(file_log)
+
+brackman = commands.Bot(command_prefix='f/', intents=intents)
+
+
+@brackman.event
+async def on_ready():
+    logging.info(f"Logged in as {brackman.user} (ID {brackman.user.id})")
+
+
+@brackman.event
+async def on_guild_channel_update(before, after):
+    logging.info("Channel state update for %s, %s", before, after)
+    if not after:
+        logging.info("after not trueish")
+        return
+    if not after.name.endswith('(temp)'):
+        logging.info("after not a temp channel")
+        return
+    if after.members:
+        logging.info("after has members %s", after.members)
+        return
+    logging.info("Deleting %s", after.name)
+    await after.delete()
+
+
+# Help text is the first line of the docstring.
+@brackman.command(description='Set the FAF username you go by')
+async def set(ctx, faf_username: str, discord_username: Optional[str]):
+    """
+    Set the FAF username for this Discord user.
+
+    If the Discord user is supplied, the message sender must be a Brackman
+    controller; otherwise the command is ignored.  We then use the FAF API to
+    get the FAF ID, and store this plus the message's guild in the database.
+    """
+    if discord_username:
+        if ctx.author.display_name not in ['PaulWay', 'Millenwise']:
+            logging.warn(f"User {ctx.author.display_name} not allowed to f/set a Discord username")
+            await ctx.send("No, I don't think I need to take order from you, indeed!")
+            return
+    else:
+        discord_username = ctx.author.display_name
+    faf_id = faf_get_id_for_user(faf_username)
+    logging.info(f"User {discord_username} setting {faf_username}[{faf_id}] guild {ctx.guild.id} id {ctx.author.id}")
+    if faf_id is None:
+        await ctx.reply("I had a problem getting data from the FAF API, yes!")
+        return
+    db_set_user(faf_id, faf_username, ctx.guild.id, ctx.author.id, discord_username)
+    await ctx.reply('Your faf login has been set')
+
+
+def send_game_start_message(ctx, game):
+    """
+    Send a message with information about the game and its players.
+    """
+    return
+
+
+def resolve_players(ctx, players, active_channel):
+    """
+    Resolve the discord IDs for all players.  Search the database first, and
+    the active channel membership (case-independently) second.  If we find
+    any players in the active channel the database didn't know, save them.
+    Set the 'discord_id' key in the player dict if we found one.
+    """
+    db_users = db_get_users(players.keys())  # organised by ID
+    # This only gives the users that matched.  Assign their discord ID into
+    # the players dict.
+    logging.info(
+        "players keys:%s, db users keys: %s",
+        repr(players.keys()), repr([u['faf_id'] for u in db_users])
+    )
+    for db_user in db_users:
+        faf_id = str(db_user['faf_id'])  # database types, eh?
+        players[faf_id]['discord_id'] = db_user['discord_id']
+        logging.info(
+            "Resolve 1: Found discord ID %s for FAF username %s(%s)",
+            db_user['discord_id'], db_user['faf_username'], faf_id
+        )
+
+    # Rearrange the active channel's member list into a dict of lower case
+    # username to discord ID.
+    member_with_display_name_lc = {
+        member.display_name.lower(): member
+        for member in active_channel.members
+    }
+    # Now go through the player list looking for players we haven't already
+    # matched but who are in the active channel (case insensitive)
+    for player_id, player in players.items():
+        if 'discord_id' in player:
+            continue
+        player_name_lc = player['name'].lower()
+        if player_name_lc in member_with_display_name_lc:
+            member = member_with_display_name_lc[player_name_lc]
+            db_set_user(
+                player_id, player['name'], ctx.guild.id, member.id, member.display_name
+            )
+            player['discord_id'] = member.id
+            logging.info("Resolve 2: Found discord ID %s for FAF username %s", member.id, player_name)
+    # No return - resolved data is in the players dict
+
+
+async def create_voice_channel(ctx, active_channel, game_name, team_no):
+    """
+    Create the voice channel for this team, if it doesn't already exist.
+
+    Return the target channel
+    """
+    channel_name = f"Team {team_no} - {game_name} (temp)"
+    channel = discord.utils.get(
+        ctx.guild.voice_channels, name=channel_name
+    )
+    if not channel:
+        logging.info("Voice channel %s doesn't exist - creating", channel_name)
+        try:
+            channel = await ctx.message.guild.create_voice_channel(
+                channel_name,
+                reason=f'temp channel {team_no} for FAF game {game_name}',
+            )
+        except Exception as e:
+            logging.error(f"Could not create channel - {e}")
+            await ctx.send(f"I'm afraid I can't create a voice channel")
+            return None
+        if not channel:
+            logging.error(f"Could not create channel - unknown error")
+            await ctx.send(f"I'm afraid I can't create a voice channel")
+            return None
+    return (team_no, channel)
+
+
+async def move_player(member, channel):
+    """
+    Move the player to the channel, with logging.
+    """
+    logging.info(f"Moving {member.display_name}[{member.id}] into {channel.name}")
+    await member.move_to(channel)
+
+
+@brackman.command(description='Sort players in your game into voice channels')
+async def sort(ctx):
+    """
+    Sort the players in the game the user is in into team voice channels.
+    """
+    logging.info("Received f/sort from %s", ctx.author.display_name)
+    guild = ctx.guild
+    if not ctx.author.voice:
+        logging.info(f"User {ctx.author.display_name} not in voice channel")
+        await ctx.reply("You must be in a voice channel in order to issue this command.")
+        return
+    active_channel = ctx.author.voice.channel
+
+    db_user = db_get_user(discord_id=ctx.author.id)
+    logging.info("Got DB data %s for author %s[%s]", db_user, ctx.author.display_name, ctx.author.id)
+    faf_id = db_user['faf_id']
+    if not db_user:
+        # Try searching FAF for the username
+        faf_id = faf_get_id_of_user(ctx.author.display_name)
+        if not faf_id:
+            logging.info("Couldn't find FAF username for %s")
+            await ctx.send(f"I couldn't find your FAF username. Please set it, eg `f/set {msg.author.username}`")
+            return
+        db_user = db_set_user(faf_id, ctx.author.display_name, ctx.guild.id, ctx.author.id, ctx.author.display_name)
+
+    game = faf_get_last_game_for_faf_id(faf_id)
+    if not game:
+        logging.info("Player %s[%s] not in any game", db_user['faf_username'], faf_id)
+        await ctx.send("I couldn't find you in any games on FAF, indeed!")
+        return
+    if game['end_time']:
+        logging.info("Player %s[%s] not in a current game", db_user['faf_username'], faf_id)
+        await ctx.send("I'm afraid your last game is... over!")
+        return
+    await ctx.send(f"Yes, {ctx.author.display_name}, I see you're in game {game['name']}")
+
+    send_game_start_message(ctx, game)
+    # This adds Discord ID data into the game['players'] structure
+    resolve_players(ctx, game['players'], active_channel)
+
+    channels = await asyncio.gather(*[
+        create_voice_channel(ctx, active_channel, game['name'], team_no+1)
+        for team_no in range(game['teams'])  # because range goes from 0..n-1
+    ])
+    if (not channels) or (all(x is None for x in channels)):
+        logging.info("No voice channels created!")
+        ctx.reply("I'm afraid I was unable to create any voice channels.")
+        return
+    # Reconstruct the data to map players into channels by team number
+    channel_of_team = dict(channels)  # team_no: channel
+    logging.info("Created channels: %s", channel_of_team)
+    logging.info("Players in game: %s", game['players'])
+    # Map the player's discord_id to the channel object to put them in
+    channel_of_player = {
+        player['discord_id']: channel_of_team[player['team']]
+        for player in game['players'].values()
+        if 'discord_id' in player and player['team'] in channel_of_team
+    }
+    logging.info(
+        "Resolved channels for players: %s",
+        {k: v.name for k, v in channel_of_player.items()}
+    )
+
+    # Move all the players in one go, near-simultaneously
+    await asyncio.gather(*[
+        move_player(member, channel_of_player[member.id])
+        for member in active_channel.members
+        if member.id in channel_of_player
+    ])
+
+    # Find all the unknown players, and warn about them
+    unknown_players = sorted(
+        player['name']
+        for player in game['players'].values()
+        if 'discord_id' not in player
+    )
+    if unknown_players:
+        await ctx.send(
+            "I couldn't find Discord usernames for the following FAF players: " +
+            ', '.join(unknown_players) +
+            " - if you're one of those people, issue `f/set` with your FAF username."
+        )
+    # And that's it!
+
+
+if __name__ == '__main__':
+    full_config = read_config('config.yaml')
+    init_oauth_config(full_config)
+    assert 'discord' in full_config
+    assert 'token' in full_config['discord']
+    brackman.run(full_config['discord']['token'])  #, log_handler=file_log)
