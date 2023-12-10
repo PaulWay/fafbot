@@ -27,21 +27,6 @@ def read_config(config_filename):
     return full_config
 
 
-game = {
-    'name': 'ANZ FAF MapGen',
-    'map': {
-    },
-    'teams': 2,
-    'players': {  # indexed by faf_id for fast database lookup
-        129182: {
-            'name': 'PaulWay', 'team': 1
-        },
-        203724: {
-            'name': 'crenn6977', 'team': 2
-        }
-    }
-}
-
 # file_log = logging.FileHandler(filename='brackman.log', encoding='utf-8')
 # logger = logging.getLogger('brackman')
 # logging.addHandler(file_log)
@@ -55,19 +40,23 @@ async def on_ready():
 
 
 @brackman.event
-async def on_guild_channel_update(before, after):
-    logging.info("Channel state update for %s, %s", before, after)
-    if not after:
-        logging.info("after not trueish")
+async def on_voice_state_update(member, before, after):
+    # Check if someone has moved from a temporary channel and if that channel
+    # is now empty.  If so, delete it.
+    if not before:
+        logging.info("Channel check: no before object")
         return
-    if not after.name.endswith('(temp)'):
-        logging.info("after not a temp channel")
+    if before.channel == after.channel:
+        logging.info("Channel check: channel hasn't changed")
         return
-    if after.members:
-        logging.info("after has members %s", after.members)
+    if not before.channel.name.endswith('(temp)'):
+        logging.info("Channel check: %s not a temporary channel", before.channel)
         return
-    logging.info("Deleting %s", after.name)
-    await after.delete()
+    if before.channel.members:
+        logging.info("Channel check: %s not empty", before.channel)
+        return
+    logging.info("Channel check: deleting %s", before.channel.name)
+    await before.channel.delete()
 
 
 # Help text is the first line of the docstring.
@@ -157,12 +146,16 @@ async def create_voice_channel(ctx, active_channel, game_name, team_no):
     channel = discord.utils.get(
         ctx.guild.voice_channels, name=channel_name
     )
-    if not channel:
+    if channel:
+        logging.info("Voice channel %s exists", channel_name)
+    else:
         logging.info("Voice channel %s doesn't exist - creating", channel_name)
         try:
             channel = await ctx.message.guild.create_voice_channel(
                 channel_name,
                 reason=f'temp channel {team_no} for FAF game {game_name}',
+                position=team_no,
+                category=active_channel.category
             )
         except Exception as e:
             logging.error(f"Could not create channel - {e}")
