@@ -149,7 +149,7 @@ def db_set_user(faf_id, faf_username, guild_id, discord_id, discord_username):
         WHERE guild_id = ? AND discord_id = ?
         RETURNING {PLAYER_HEADER_STR}
     """
-    ins_sql = """
+    ins_sql = f"""
         INSERT INTO players
         (faf_id, faf_username, discord_username, updated_at, guild_id, discord_id)
         VALUES (?, ?, ?, ?, ?, ?)
