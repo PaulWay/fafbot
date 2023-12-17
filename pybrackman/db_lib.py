@@ -161,9 +161,11 @@ def db_set_user(faf_id, faf_username, guild_id, discord_id, discord_username):
         guild_id, discord_id,
     ]
 
+    logging.info(upd_sql, row_vals)
     res = cursor.execute(upd_sql, row_vals)
     row = res.fetchone()
     if not row:
+        logging.info(ins_sql, row_vals)
         res = cursor.execute(ins_sql, row_vals)
         row = res.fetchone()
     con.commit()
