@@ -43,8 +43,8 @@ async def on_ready():
 async def on_voice_state_update(member, before, after):
     # Check if someone has moved from a temporary channel and if that channel
     # is now empty.  If so, delete it.
-    if not before:
-        logging.info("Channel check: no before object")
+    if not (before and before.channel):
+        logging.info("Channel check: no before channel object")
         return
     if before.channel == after.channel:
         logging.info("Channel check: channel hasn't changed")
@@ -128,9 +128,13 @@ def resolve_players(ctx, players, active_channel):
         player_name_lc = player['name'].lower()
         if player_name_lc in member_with_display_name_lc:
             member = member_with_display_name_lc[player_name_lc]
-            db_set_user(
-                player_id, player['name'], ctx.guild.id, member.id, member.display_name
-            )
+            try:
+                db_set_user(
+                    player_id, player['name'], ctx.guild.id, member.id, member.display_name
+                )
+            except:
+                logging.error("Error thrown while calling db_set_user")
+                pass
             player['discord_id'] = member.id
             logging.info("Resolve 2: Found discord ID %s for FAF username %s", member.id, player_name)
     # No return - resolved data is in the players dict
@@ -226,8 +230,8 @@ async def sort(ctx):
         return
     # Reconstruct the data to map players into channels by team number
     channel_of_team = dict(channels)  # team_no: channel
-    logging.info("Created channels: %s", channel_of_team)
-    logging.info("Players in game: %s", game['players'])
+    # logging.info("Created channels from: %s", channels)
+    # logging.info("Players in game: %s", game['players'])
     # Map the player's discord_id to the channel object to put them in
     channel_of_player = {
         player['discord_id']: channel_of_team[player['team']]
