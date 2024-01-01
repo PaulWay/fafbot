@@ -82,7 +82,20 @@ async def set(ctx, faf_username: str, discord_username: Optional[str]):
         await ctx.reply("I had a problem getting data from the FAF API, yes!")
         return
     db_set_user(faf_id, faf_username, ctx.guild.id, ctx.author.id, discord_username)
-    await ctx.reply('Your faf login has been set')
+    if ctx.author.display_name != discord_username:
+        await ctx.reply(f"I'll remember that {faf_username} is {discord_username} for you, {ctx.author.display_name}")
+    else:
+        await ctx.reply('Your faf login has been set')
+
+
+@set.error
+async def set_error(ctx, error):
+    """
+    Handle missing arguments here
+    """
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.reply("You need to tell me your FAF username as well, yes!  Try `f/set faf_username` ...")
+        return
 
 
 def send_game_start_message(ctx, game):
@@ -99,7 +112,7 @@ def resolve_players(ctx, players, active_channel):
     any players in the active channel the database didn't know, save them.
     Set the 'discord_id' key in the player dict if we found one.
     """
-    db_users = db_get_users(players.keys())  # organised by ID
+    db_users = db_get_users(players.keys(), ctx.guild.id)  # organised by ID
     # This only gives the users that matched.  Assign their discord ID into
     # the players dict.
     logging.info(
@@ -136,7 +149,7 @@ def resolve_players(ctx, players, active_channel):
                 logging.error("Error thrown while calling db_set_user")
                 pass
             player['discord_id'] = member.id
-            logging.info("Resolve 2: Found discord ID %s for FAF username %s", member.id, player_name)
+            logging.info("Resolve 2: Found discord ID %s for FAF username %s", member.id, player['name'])
     # No return - resolved data is in the players dict
 
 
@@ -214,7 +227,7 @@ async def sort(ctx):
         logging.info("Player %s[%s] not in a current game", db_user['faf_username'], faf_id)
         await ctx.send("I'm afraid your last game is... over!")
         return
-    await ctx.send(f"Yes, {ctx.author.display_name}, I see you're in game {game['name']}")
+    await ctx.send(f"Yes, {ctx.author.display_name}, I see you're in game `{game['name']}`")
 
     send_game_start_message(ctx, game)
     # This adds Discord ID data into the game['players'] structure
