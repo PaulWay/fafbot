@@ -155,8 +155,8 @@ def db_set_user(faf_id, faf_username, guild_id, discord_id, discord_username):
     )
     # For some reason logging really doesn't like taking row_vals as an arguemnt here.
     # Have to manually expand it?
-    logging.info('Insert SQL: %s', ins_sql)
-    logging.info('Row data: %s', repr(row_vals))
+    # logging.info('Insert SQL: %s', ins_sql)
+    # logging.info('Row data: %s', repr(row_vals))
     res = cursor.execute(ins_sql, row_vals)
     con.commit()
 
@@ -169,42 +169,4 @@ def db_set_user(faf_id, faf_username, guild_id, discord_id, discord_username):
     """
     res = cursor.execute(sql, [guild_id, discord_id])
     row = res.fetchone()
-    return map_row(row)
-    
-
-
-def db_set_user_old(faf_id, faf_username, guild_id, discord_id, discord_username):
-    """
-    Update a user, or create them if they don't exist.
-    The unique key here is actually (guild_id, discord_id).
-    """
-    # INSERT OR REPLACE will delete the row if it already exists, which means
-    # the created_at timestamp changes.  If we update the row, and we get no
-    # data, then we need to insert the row.  Either way we return a player.
-    upd_sql = f"""
-        UPDATE players
-        SET faf_id = ?, faf_username = ?, discord_username = ?, updated_at = ?
-        WHERE guild_id = ? AND discord_id = ?
-        RETURNING {PLAYER_HEADER_STR}
-    """
-    ins_sql = f"""
-        INSERT INTO players
-        (faf_id, faf_username, discord_username, updated_at, guild_id, discord_id)
-        VALUES (?, ?, ?, ?, ?, ?)
-        RETURNING {PLAYER_HEADER_STR}
-    """
-    # Attempt to keep the field order in the above statements the same, for:
-    row_vals = [
-        faf_id, faf_username, discord_username, datetime.now(),
-        guild_id, discord_id,
-    ]
-
-    logging.info(upd_sql + ', '.join(['%s'] * len(row_vals)), row_vals)
-    res = cursor.execute(upd_sql, row_vals)
-    row = res.fetchone()
-    if not row:
-        logging.info(ins_sql + ', '.join(['%s'] * len(row_vals)), row_vals)
-        res = cursor.execute(ins_sql, row_vals)
-        row = res.fetchone()
-    con.commit()
     return map_row(row)
