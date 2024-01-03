@@ -44,13 +44,13 @@ async def on_voice_state_update(member, before, after):
     # Check if someone has moved from a temporary channel and if that channel
     # is now empty.  If so, delete it.
     if not (before and before.channel):
-        logging.info("Channel check: no before channel object")
+        # logging.info("Channel check: no before channel object")
         return
     if before.channel == after.channel:
-        logging.info("Channel check: channel hasn't changed")
+        # logging.info("Channel check: channel hasn't changed")
         return
     if not before.channel.name.endswith('(temp)'):
-        logging.info("Channel check: %s not a temporary channel", before.channel)
+        # logging.info("Channel check: %s not a temporary channel", before.channel)
         return
     if before.channel.members:
         logging.info("Channel check: %s not empty", before.channel)
