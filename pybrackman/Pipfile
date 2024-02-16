@@ -10,6 +10,7 @@ oauthlib = "*"
 requests-oauthlib = "*"
 pyyaml = "*"
 requests-oauth2client = "*"
+pytz = "*"
 
 [dev-packages]
 
