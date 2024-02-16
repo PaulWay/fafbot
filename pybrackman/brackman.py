@@ -1,12 +1,14 @@
 import asyncio
+import datetime
 import discord
 from discord.ext import commands
 import logging
+import pytz
 from typing import Optional
 import yaml
 
 from faf_lib import (
-    faf_get_id_for_user, faf_get_last_game_for_faf_id,
+    faf_get_player_for_user, faf_get_id_for_user, faf_get_last_game_for_faf_id,
     init_oauth_config
 )
 from db_lib import db_get_user, db_get_users, db_set_user
@@ -15,6 +17,8 @@ logging.basicConfig(level=logging.INFO)
 
 intents = discord.Intents.default()
 intents.message_content = True
+
+sydney_tz = pytz.timezone('Australia/Sydney')
 
 
 def read_config(config_filename):
@@ -96,6 +100,24 @@ async def set_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.reply("You need to tell me your FAF username as well, yes!  Try `f/set faf_username` ...")
         return
+
+
+@brackman.command(description='Details about a FAF player')
+async def who(ctx, player: str):
+    """
+    Get details about a FAF user
+    """
+    details = faf_get_player_for_user(player)
+    if not details:
+        await ctx.reply(f"You must be mistaken, FAF does not know a player called `{player}`")
+        return
+    # logging.info("Got player details: %s", player)
+    created_at = datetime.datetime.fromisoformat(details['attributes']['createTime']).astimezone(sydney_tz)
+    updated_at = datetime.datetime.fromisoformat(details['attributes']['updateTime']).astimezone(sydney_tz)
+    await ctx.reply(f"""
+Player {details['attributes']['login']} joined at {created_at}
+They last played at {updated_at}
+    """)
 
 
 def send_game_start_message(ctx, game):
