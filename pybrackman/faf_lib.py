@@ -1,21 +1,14 @@
 import logging
 import requests
-# from oauthlib.oauth2 import BackendApplicationClient, TokenExpiredError
-# from requests_oauthlib import OAuth2Session
 from requests_oauth2client import (
     OAuth2Client, ClientSecretPost, ApiClient, OAuth2ClientCredentialsAuth
 )
 import yaml
 
-# logger = logging.getLogger('brackman')
-
-# Load this from the config.yaml 'oauth2' section via load_oauth_config()
 config = dict()
 client = None
 api_root = "https://api.faforever.com/data/"
 api = None
-# oauth = None
-# token = None
 
 
 def init_oauth_config(full_config):
@@ -31,23 +24,6 @@ def init_oauth_config(full_config):
     assert 'client_id' in config
     assert 'client_secret' in config
     assert 'token_url' in config
-    # global client
-    # client = BackendApplicationClient(client_id=config['client_id'])
-    # print(f"Set up {client=}")
-    # global oauth
-    # oauth = OAuth2Session(
-        # client=client,
-        # # auto_refresh_url=config.get('refresh_url', config['token_url']), ??
-        # token_endpoint_auth_method="client_secret_post"
-    # )
-    # print(f"Set up {oauth=}")
-    # global token
-    # token = oauth.fetch_token(
-        # token_url=config['token_url'], client_id=config['client_id'],
-        # client_secret=config['client_secret']
-    # )
-    # print(f"Got {token=}")
-    # global oauth
     global client
     client = OAuth2Client(
         config['token_url'],
@@ -60,34 +36,12 @@ def init_oauth_config(full_config):
     logging.info("OAuth2 to FAF API successful")
 
 
-def make_request(url):
+def faf_get_player_for_user(faf_username):
     """
-    Make the request and handle any OAuth2 retries and setup.
-    """
-    global oauth
-    assert oauth is not None  # need config for init
-    extra_data = {
-        'client_id': config['client_id'],
-        'client_secret': config['client_secret']
-    }
-    # global token
-    # try:
-    #     response = oauth.get(url)
-    # except TokenExpiredError as e:
-    #     token = oauth.refresh_token(config['token_url'], **extra_data)
-    #     oauth = OAuth2Session(client_id, token=token)
-    #     response = oauth.get(url)
-    response = oauth.get(url)
-    return response
-
-
-def faf_get_id_for_user(faf_username):
-    """
-    Get the ID of a user given their username.
+    Get the player details of a user given their username.
     """
     name = requests.utils.quote(faf_username)
     path = f"player?filter=login=={name}&page[size]=1"
-    # resp = make_request(url)
     global api
     resp = api.get(path)
     logging.info("Received %s on get ID of %s: %s", resp.status_code, name, resp.content.decode())
@@ -103,11 +57,21 @@ def faf_get_id_for_user(faf_username):
     if len(player['data']) == 0:
         # Not found
         return None
-    if 'type' in player['data'][0] and player['data'][0]['type'] == 'player' and 'id' in player['data'][0]:
-        return player['data'][0]['id']
+    if 'type' in player['data'][0] and player['data'][0]['type'] == 'player':
+        return player['data'][0]
     else:
         # Data format error
         return None
+
+
+def faf_get_id_for_user(faf_username):
+    """
+    Just use the get_player_for_username and get the ID alone.
+    """
+    player = faf_get_player_for_username(faf_username)
+    if not player:
+        return player
+    return player.get('id', None)
 
 
 def faf_data_to_game_data(faf_data):
