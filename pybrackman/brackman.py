@@ -73,18 +73,21 @@ async def set(ctx, faf_username: str, discord_username: Optional[str]):
     controller; otherwise the command is ignored.  We then use the FAF API to
     get the FAF ID, and store this plus the message's guild in the database.
     """
-    if discord_username:
-        if ctx.author.display_name not in ['PaulWay', 'Millenwise']:
+    logging.info(f"{ctx=}, {faf_username=}, {discord_username}")
+    if discord_username is not None:
+        if ctx.author.display_name not in ['PaulWay', 'Millenwise', 'Angelofd347h']:
             logging.warn(f"User {ctx.author.display_name} not allowed to f/set a Discord username")
             await ctx.send("No, I don't think I need to take order from you, indeed!")
             return
     else:
         discord_username = ctx.author.display_name
+    logging.info(f"Matching {faf_username=} to {discord_username}")
+
     faf_id = faf_get_id_for_user(faf_username)
-    logging.info(f"User {discord_username} setting {faf_username}[{faf_id}] guild {ctx.guild.id} id {ctx.author.id}")
     if faf_id is None:
         await ctx.reply("I had a problem getting data from the FAF API, yes!")
         return
+    logging.info(f"User {discord_username} setting {faf_username}[{faf_id}] guild {ctx.guild.id} id {ctx.author.id}")
     db_set_user(faf_id, faf_username, ctx.guild.id, ctx.author.id, discord_username)
     if ctx.author.display_name != discord_username:
         await ctx.reply(f"I'll remember that {faf_username} is {discord_username} for you, {ctx.author.display_name}")
@@ -116,7 +119,7 @@ async def who(ctx, player: str):
     updated_at = datetime.datetime.fromisoformat(details['attributes']['updateTime']).astimezone(sydney_tz)
     await ctx.reply(f"""
 Player {details['attributes']['login']} joined at {created_at}
-They last played at {updated_at}
+They last logged in at {updated_at}
     """)
 
 
@@ -181,6 +184,9 @@ async def create_voice_channel(ctx, active_channel, game_name, team_no):
 
     Return the target channel
     """
+    # Voice channels can only be max 100 chars
+    if len(game_name) > 85:
+        game_name = game_name[:85]
     channel_name = f"Team {team_no} - {game_name} (temp)"
     channel = discord.utils.get(
         ctx.guild.voice_channels, name=channel_name
@@ -249,7 +255,7 @@ async def sort(ctx):
         logging.info("Player %s[%s] not in a current game", db_user['faf_username'], faf_id)
         await ctx.send("I'm afraid your last game is... over!")
         return
-    await ctx.send(f"Yes, {ctx.author.display_name}, I see you're in game `{game['name']}`")
+    await ctx.send(f"Yes, my child, {ctx.author.display_name}, I see you're in game `{game['name']}`.  Oh yes!")
 
     send_game_start_message(ctx, game)
     # This adds Discord ID data into the game['players'] structure
