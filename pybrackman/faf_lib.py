@@ -40,11 +40,12 @@ def faf_get_player_for_user(faf_username):
     """
     Get the player details of a user given their username.
     """
+    global api
+    logging.info("got to faf_get_player_for_user({faf_username=})")
     name = requests.utils.quote(faf_username)
     path = f"player?filter=login=={name}&page[size]=1"
-    global api
     resp = api.get(path)
-    logging.info("Received %s on get ID of %s: %s", resp.status_code, name, resp.content.decode())
+    # logging.info("Received %s on get ID of %s: %s", resp.status_code, name, resp.content.decode())
     if resp.status_code != 200:
         logging.warn("Received %s on get ID of %s: %s", resp.status_code, name, resp.content.decode())
         return None
@@ -68,10 +69,24 @@ def faf_get_id_for_user(faf_username):
     """
     Just use the get_player_for_username and get the ID alone.
     """
-    player = faf_get_player_for_username(faf_username)
-    if not player:
-        return player
-    return player.get('id', None)
+    logging.info(f"got to faf_get_id_for_user({faf_username=})")
+    # player = faf_get_player_for_username(faf_username)
+    name = requests.utils.quote(faf_username)
+    path = f"player?filter=login=={name}&page[size]=1"
+    global api
+    resp = api.get(path)
+    if resp.status_code != 200:
+        logging.warn("Received %s on get ID of %s: %s", resp.status_code, name, resp.content.decode())
+        return None
+    player_data = resp.json()
+    logging.info(f"... got {player_data=} back")
+    if not player_data:
+        return None
+    try:
+        return player_data['data'][0]['id']
+    except (IndexError, KeyError):
+        logging.warn("Data format error - can't find [data][0][id] in %s", player_data)
+        return None
 
 
 def faf_data_to_game_data(faf_data):
@@ -128,6 +143,10 @@ def faf_data_to_game_data(faf_data):
             players[faf_id][key] = value
     game['players'] = players
     game['teams'] = max_team
+    logging.info(
+        "FAF says last game for %s (id %s) is %s, players are %s",
+        players[faf_id]['name'], faf_id, 'last_game_id', players
+    )
     return game
 
 
