@@ -185,8 +185,8 @@ async def create_voice_channel(ctx, active_channel, game_name, team_no):
     Return the target channel
     """
     # Voice channels can only be max 100 chars
-    if len(game_name) > 85:
-        game_name = game_name[:85]
+    if len(game_name) > 82:
+        game_name = game_name[:82]
     channel_name = f"Team {team_no} - {game_name} (temp)"
     channel = discord.utils.get(
         ctx.guild.voice_channels, name=channel_name
@@ -204,11 +204,11 @@ async def create_voice_channel(ctx, active_channel, game_name, team_no):
             )
         except Exception as e:
             logging.error(f"Could not create channel - {e}")
-            await ctx.send(f"I'm afraid I can't create a voice channel")
+            await ctx.send(f"I'm afraid I can't create a voice channel - indeed not!")
             return None
         if not channel:
             logging.error(f"Could not create channel - unknown error")
-            await ctx.send(f"I'm afraid I can't create a voice channel")
+            await ctx.send(f"I'm afraid I can't create a voice channel - this is a temporary inconvenience at best!")
             return None
     return (team_no, channel)
 
