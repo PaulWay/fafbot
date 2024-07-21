@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 import logging
 import pytz
+from random import choice
 from typing import Optional
 import yaml
 
@@ -17,6 +18,18 @@ logging.basicConfig(level=logging.INFO)
 
 intents = discord.Intents.default()
 intents.message_content = True
+
+std_game_start_messages = [
+    "{player}, my child, I see you're in game `{name}`!",
+    "It is as I predicted - {player} would start game `{name}` - oh yes!",
+    "I see game `{name}` has started, {player} - very well, let us talk privately.",
+    "Oh ho, {player} - you want somewhere to discuss game `{name}`.  Indeed, indeed!",
+    "Well well - the battle has come to `{name}`, {player}.  I see it.",
+]
+spec_game_start_messages = [
+    "Well, {player} old friend - you need somewhere to converse on game `{name}`, and you shall have it!",
+    "Good old {player} has asked for somewhere to discuss game `{name}` - oh yes!",
+]
 
 sydney_tz = pytz.timezone('Australia/Sydney')
 
@@ -123,11 +136,17 @@ They last logged in at {updated_at}
     """)
 
 
-def send_game_start_message(ctx, game):
+async def send_game_start_message(ctx, game):
     """
     Send a message with information about the game and its players.
     """
-    return
+    messages = std_game_start_messages.copy()
+    player = ctx.author.display_name
+    name = game['name']
+    if player in ('Millenwise', 'PaulWay'):
+        messages.extend(spec_game_start_messages)
+    message = choice(messages)
+    await ctx.send(message.format(player=player, name=name))
 
 
 def resolve_players(ctx, players, active_channel):
@@ -255,9 +274,9 @@ async def sort(ctx):
         logging.info("Player %s[%s] not in a current game", db_user['faf_username'], faf_id)
         await ctx.send("I'm afraid your last game is... over!")
         return
-    await ctx.send(f"Yes, my child, {ctx.author.display_name}, I see you're in game `{game['name']}`.  Oh yes!")
+    
+    await send_game_start_message(ctx, game)
 
-    send_game_start_message(ctx, game)
     # This adds Discord ID data into the game['players'] structure
     resolve_players(ctx, game['players'], active_channel)
 
