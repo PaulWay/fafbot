@@ -30,6 +30,7 @@ spec_game_start_messages = [
     "Well, {player} old friend - you need somewhere to converse on game `{name}`, and you shall have it!",
     "Good old {player} has asked for somewhere to discuss game `{name}` - oh yes!",
 ]
+privileged_players = ['PaulWay', 'Millenwise', 'Angelofd347h']
 
 sydney_tz = pytz.timezone('Australia/Sydney')
 
@@ -88,7 +89,7 @@ async def set(ctx, faf_username: str, discord_username: Optional[str]):
     """
     logging.info(f"{ctx=}, {faf_username=}, {discord_username}")
     if discord_username is not None:
-        if ctx.author.display_name not in ['PaulWay', 'Millenwise', 'Angelofd347h']:
+        if ctx.author.display_name not in privileged_players:
             logging.warn(f"User {ctx.author.display_name} not allowed to f/set a Discord username")
             await ctx.send("No, I don't think I need to take order from you, indeed!")
             return
@@ -143,7 +144,7 @@ async def send_game_start_message(ctx, game):
     messages = std_game_start_messages.copy()
     player = ctx.author.display_name
     name = game['name']
-    if player in ('Millenwise', 'PaulWay'):
+    if player in privileged_players:
         messages.extend(spec_game_start_messages)
     message = choice(messages)
     await ctx.send(message.format(player=player, name=name))
@@ -241,11 +242,16 @@ async def move_player(member, channel):
 
 
 @brackman.command(description='Sort players in your game into voice channels')
-async def sort(ctx):
+async def sort(ctx, discord_username: Optional[str]):
     """
     Sort the players in the game the user is in into team voice channels.
     """
     logging.info("Received f/sort from %s", ctx.author.display_name)
+    
+    if discord_username and ctx.author.display_name not in privileged_players:
+        await ctx.reply("I'm afraid you are not that special, my child!")
+        return
+
     guild = ctx.guild
     if not ctx.author.voice:
         logging.info(f"User {ctx.author.display_name} not in voice channel")
@@ -253,15 +259,22 @@ async def sort(ctx):
         return
     active_channel = ctx.author.voice.channel
 
-    db_user = db_get_user(discord_id=ctx.author.id)
-    logging.info("Got DB data %s for author %s[%s]", db_user, ctx.author.display_name, ctx.author.id)
+    if discord_username:
+        db_user = db_get_user(discord_username=discord_username)
+        logging.info(
+            "Got DB data for %s on behalf of %s[%s]",
+            discord_username, ctx.author.display_name, ctx.author.id
+        )
+    else:
+        db_user = db_get_user(discord_id=ctx.author.id)
+        logging.info("Got DB data %s for author %s[%s]", db_user, ctx.author.display_name, ctx.author.id)
     faf_id = db_user['faf_id']
     if not db_user:
         # Try searching FAF for the username
         faf_id = faf_get_id_of_user(ctx.author.display_name)
         if not faf_id:
-            logging.info("Couldn't find FAF username for %s")
-            await ctx.send(f"I couldn't find your FAF username. Please set it, eg `f/set {msg.author.username}`")
+            logging.info("Couldn't find FAF username for %s", ctx.author.display_name)
+            await ctx.send(f"I couldn't find your FAF username. Please set it, eg `f/set {ctx.author.username}`")
             return
         db_user = db_set_user(faf_id, ctx.author.display_name, ctx.guild.id, ctx.author.id, ctx.author.display_name)
 
