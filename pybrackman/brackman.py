@@ -227,7 +227,7 @@ async def create_voice_channel(ctx, active_channel, game_name, team_no):
             await ctx.send(f"I'm afraid I can't create a voice channel - indeed not!")
             return None
         if not channel:
-            logging.error(f"Could not create channel - unknown error")
+            logging.error("Could not create channel - unknown error")
             await ctx.send(f"I'm afraid I can't create a voice channel - this is a temporary inconvenience at best!")
             return None
     return (team_no, channel)
@@ -306,15 +306,28 @@ async def sort(ctx, discord_username: Optional[str]):
     # logging.info("Created channels from: %s", channels)
     # logging.info("Players in game: %s", game['players'])
     # Map the player's discord_id to the channel object to put them in
+    # game keys: player FAF ID; values: name and team.
     channel_of_player = {
         player['discord_id']: channel_of_team[player['team']]
         for player in game['players'].values()
-        if 'discord_id' in player and player['team'] in channel_of_team
+        if 'discord_id' in player and 'team' in player and player['team'] in channel_of_team
     }
     logging.info(
         "Resolved channels for players: %s",
         {k: v.name for k, v in channel_of_player.items()}
     )
+    if any('discord_id' not in v for v in game['players'].values()):
+        logging.info(
+            "Players with no discord ID: %s",
+            {k: v for k, v in game['players'].items() if 'discord_id' not in v}
+        )
+    # resolve_players() should set a team, but had one crash when it didn't,
+    # so log that for checking later.
+    if any('team' not in v for v in game['players'].values()):
+        logging.warn(
+            "Players with no team: %s",
+            {k: v for k, v in game['players'].items() if 'team' not in v}
+        )
 
     # Move all the players in one go, near-simultaneously
     await asyncio.gather(*[
