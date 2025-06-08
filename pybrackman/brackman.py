@@ -20,15 +20,15 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 std_game_start_messages = [
-    "{player}, my child, I see you're in game `{name}`!",
-    "It is as I predicted - {player} would start game `{name}` - oh yes!",
-    "I see game `{name}` has started, {player} - very well, let us talk privately.",
-    "Oh ho, {player} - you want somewhere to discuss game `{name}`.  Indeed, indeed!",
-    "Well well - the battle has come to `{name}`, {player}.  I see it.",
+    "{player}, my child, I see you're in game `{name}` hosted by {host}!",
+    "It is as I predicted, {player} - {host} would start game `{name}` - oh yes!",
+    "I see {host} started game `{name}`, {player} - very well, you should talk privately.",
+    "Oh ho, {player} - you want somewhere to discuss {host_s} game `{name}`.  Indeed, indeed!",
+    "Well well - {host_s} battle has come to `{name}`, {player}.  I see it.",
 ]
 spec_game_start_messages = [
-    "Well, {player} old friend - you need somewhere to converse on game `{name}`, and you shall have it!",
-    "Good old {player} has asked for somewhere to discuss game `{name}` - oh yes!",
+    "Well, {player} old friend - you need somewhere to converse on {host_s} game `{name}`, and you shall have it!",
+    "Good old {player} has asked for somewhere to discuss game `{name}` of {host} - oh yes!",
 ]
 privileged_players = ['PaulWay', 'Millenwise', 'Angelofd347h']
 
@@ -120,10 +120,12 @@ async def set_error(ctx, error):
 
 
 @brackman.command(description='Details about a FAF player')
-async def who(ctx, player: str):
+async def who(ctx, player: Optional[str]):
     """
     Get details about a FAF user
     """
+    if not player:
+        player = ctx.author.display_name
     details = faf_get_player_for_user(player)
     if not details:
         await ctx.reply(f"You must be mistaken, FAF does not know a player called `{player}`")
@@ -143,11 +145,16 @@ async def send_game_start_message(ctx, game):
     """
     messages = std_game_start_messages.copy()
     player = ctx.author.display_name
+    host = game['host_faf_name']
+    host_s = host + "'s"
+    if host == player:
+        host = 'your'
+        host_s = 'your'
     name = game['name']
     if player in privileged_players:
         messages.extend(spec_game_start_messages)
     message = choice(messages)
-    await ctx.send(message.format(player=player, name=name))
+    await ctx.send(message.format(player=player, host=host, host_s=host_s, name=name))
 
 
 def resolve_players(ctx, players, active_channel):

@@ -41,9 +41,9 @@ def faf_get_player_for_user(faf_username):
     Get the player details of a user given their username.
     """
     global api
-    logging.info("got to faf_get_player_for_user({faf_username=})")
+    logging.info("got to faf_get_player_for_user(%s)", faf_username)
     name = requests.utils.quote(faf_username)
-    path = f"player?filter=login=={name}&page[size]=1"
+    path = f"player?filter=login=={name}&page[size]=1"  # &include=playerStats"
     resp = api.get(path)
     # logging.info("Received %s on get ID of %s: %s", resp.status_code, name, resp.content.decode())
     if resp.status_code != 200:
@@ -54,13 +54,16 @@ def faf_get_player_for_user(faf_username):
     player = resp.json()
     if 'data' not in player:
         # Data format error
+        logging.error("Returned data had no 'data': %s", player)
         return None
     if len(player['data']) == 0:
         # Not found
+        logging.error("Returned data had no listed data: %s", player)
         return None
     if 'type' in player['data'][0] and player['data'][0]['type'] == 'player':
         return player['data'][0]
     else:
+        logging.error("Returned data didn't seem to be of type 'player': %s", player)
         # Data format error
         return None
 
@@ -89,6 +92,31 @@ def faf_get_id_for_user(faf_username):
         return None
 
 
+def faf_game_data_get_host_name(faf_data):
+    """
+    Try to get the name of the host, from the game's relationships and
+    included data.
+
+    gamedata['relationships']['host']['data']['id'] -> host_id
+    data['included'][]['type'] == 'player':
+      ['id'] == host_id:
+        ['attributes']['login'] -> host_name
+    
+    If this fails, return 'someone'.
+    """
+    host_name = 'someone'
+    try:
+        host_id = faf_data['data'][0]['relationships']['host']['data']['id']
+        for inc in faf_data['included']:
+            if inc['type'] == 'player' and inc['id'] == host_id:
+                host_name = inc['attributes']['login']
+    except:
+        pass
+    # We don't know here if the person who issued the f/sort is the person who
+    # created the game, so we can't change this to 'you' if that's the case.
+    return host_name
+
+
 def faf_data_to_game_data(faf_data):
     """
     Data received is pretty big - an example is in faf_get_last_game_for_faf_id.json.
@@ -104,22 +132,44 @@ def faf_data_to_game_data(faf_data):
     data['included'][]['type'] == 'player':
       ['id'] -> id
       ['attributes']['login'] -> players[][id]['name']
+
+    Data returned is of this form:
+    game = {
+        'name': 'ANZ FAF MapGen',
+        'end_time': "2023-11-28T05:31:36Z",
+        'map': {
+        },
+        'teams': 2,
+        'players': {  # indexed by faf_id for fast database lookup
+            129182: {
+                'name': 'PaulWay', 'team': 1
+            },
+            203724: {
+                'name': 'crenn6977', 'team': 2
+            }
+        }
+    }
+
+    We also subtract 1 from the FAF team number because 1=FFA.
     """
     if 'data' not in faf_data:
-        logger.warn("'data' not in %s", repr(faf_data))
+        logging.warn("'data' not in %s", repr(faf_data))
         return {}
     if len(faf_data['data']) == 0:
-        logger.warn("'data' list empty in %s", repr(faf_data))
+        logging.warn("'data' list empty in %s", repr(faf_data))
         return {}
     gamedata = faf_data['data'][0]
     if ('type' not in gamedata) or (gamedata['type'] != 'game'):
-        logger.warn("data doesn't look like a game in %s", repr(game_data))
+        logging.warn("data doesn't look like a game in %s", repr(game_data))
         return {}
     game = {
         'name': gamedata['attributes']['name'],
         'end_time': gamedata['attributes'].get('endTime'),
         'start_time': gamedata['attributes']['startTime'],
-        'host_faf_id': gamedata['relationships']['host']['data']['id']
+        'host_faf_id': gamedata['relationships']['host']['data']['id'],
+        # 'host_faf_name': gamedata['relationships']['host']['data'].get('name', 'name?'),
+        # host's ID is given, need to look at the players and try to get their name.
+        'host_faf_name': faf_game_data_get_host_name(faf_data)
     }
     players = dict()
     max_team = 0
@@ -144,8 +194,8 @@ def faf_data_to_game_data(faf_data):
     game['players'] = players
     game['teams'] = max_team
     logging.info(
-        "FAF says last game for %s (id %s) is %s, players are %s",
-        players[faf_id]['name'], faf_id, 'last_game_id', players
+        "FAF says last game for %s (id %s) has players %s",
+        players[faf_id]['name'], faf_id, players
     )
     return game
 
@@ -154,24 +204,7 @@ def faf_get_last_game_for_faf_id(faf_id):
     """
     Get the last game data for a given player's FAF ID.
 
-    Data returned is of this form:
-    game = {
-        'name': 'ANZ FAF MapGen',
-        'end_time': "2023-11-28T05:31:36Z",
-        'map': {
-        },
-        'teams': 2,
-        'players': {  # indexed by faf_id for fast database lookup
-            129182: {
-                'name': 'PaulWay', 'team': 1
-            },
-            203724: {
-                'name': 'crenn6977', 'team': 2
-            }
-        }
-    }
-
-    We also subtract 1 from the FAF team number because 1=FFA.
+    See the faf_data_to_game_data() function for the return value.
     """
     # quid = requests.utils.quote(str(faf_id))
     # faf_id here comes from the API - it's an integer.
@@ -183,4 +216,11 @@ def faf_get_last_game_for_faf_id(faf_id):
     resp = api.get(path)
     if resp.status_code != 200:
         logging.warn("Received %s on game for %s: %s", resp.status_code, faf_id, resp.content.decode())
-    return faf_data_to_game_data(resp.json())
+    # logging.info("Game data for FAF id %s = %s", faf_id, resp.json())
+    jsondata = resp.json()
+    if 'data' in jsondata and len(jsondata['data']) > 0 and 'id' in jsondata['data'][0]: 
+        game_id = jsondata['data'][0]['id']
+        with open(f"/tmp/game_{game_id}.json", 'w') as fh:
+            fh.write(resp.content.decode())
+            fh.write('\n')
+    return faf_data_to_game_data(jsondata)
