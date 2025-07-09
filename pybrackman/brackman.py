@@ -34,6 +34,14 @@ privileged_players = ['PaulWay', 'Millenwise', 'Angelofd347h']
 
 sydney_tz = pytz.timezone('Australia/Sydney')
 
+# A dictionary to record who's sorting which game - key is game ID, value is
+# the Discord display_name of the user that issued that command.  While we tidy
+# this up at the end of the sort function, it's not a big problem if every game
+# doesn't get removed because people don't sort old games...
+
+games_being_sorted = dict()
+sort_check_lock = asyncio.Lock()  # Use to modify games_being_sorted.
+
 
 def read_config(config_filename):
     """
@@ -294,6 +302,23 @@ async def sort(ctx, discord_username: Optional[str]):
         logging.info("Player %s[%s] not in a current game", db_user['faf_username'], faf_id)
         await ctx.send("I'm afraid your last game is... over!")
         return
+
+    # Interlock to make sure two people don't try to sort the same game at
+    # the same time.
+    game_id = game['id']
+    async with sort_check_lock:
+        if game_id in games_being_sorted:
+            logging.info(
+                "Game ID %s already being sorted by %s[%s]",
+                game_id, db_user['faf_username'], faf_id
+            )
+            await ctx.send(
+                f"You will have to be patient, {ctx.author.display_name}, "
+                f"{games_being_sorted[game_id]} is already sorting {game['name']} "
+                f"- oh yes!"
+            )
+            return
+        games_being_sorted[game_id] = ctx.author.display_name
     
     await send_game_start_message(ctx, game)
 
@@ -355,6 +380,9 @@ async def sort(ctx, discord_username: Optional[str]):
             ', '.join(unknown_players) +
             " - if you're one of those people, issue `f/set` with your FAF username."
         )
+    # Finally mark this game as no longer being sorted:
+    async with sort_check_lock:
+        del games_being_sorted[game_id]
     # And that's it!
 
 

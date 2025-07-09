@@ -123,6 +123,7 @@ def faf_data_to_game_data(faf_data):
     The mapping of fields is:
     gamedata = data['data'][0]
     gamedata['type'] == 'game'
+    gamedata['id'] -> game['id']
     gamedata['attributes']['name'] -> game['name']
     gamedata['attributes']['endTime'] -> game['end_time']
     gamedata['relationships']['host']['data']['id'] -> int() -> game['host_faf_id']
@@ -164,6 +165,7 @@ def faf_data_to_game_data(faf_data):
         return {}
     game = {
         'name': gamedata['attributes']['name'],
+        'id': gamedata['id'],
         'end_time': gamedata['attributes'].get('endTime'),
         'start_time': gamedata['attributes']['startTime'],
         'host_faf_id': gamedata['relationships']['host']['data']['id'],
