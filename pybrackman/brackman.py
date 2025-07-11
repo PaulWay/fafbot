@@ -283,10 +283,11 @@ async def sort(ctx, discord_username: Optional[str]):
     else:
         db_user = db_get_user(discord_id=ctx.author.id)
         logging.info("Got DB data %s for author %s[%s]", db_user, ctx.author.display_name, ctx.author.id)
-    faf_id = db_user['faf_id']
-    if not db_user:
+    if db_user:
+        faf_id = db_user['faf_id']
+    else:
         # Try searching FAF for the username
-        faf_id = faf_get_id_of_user(ctx.author.display_name)
+        faf_id = faf_get_id_for_user(ctx.author.display_name)
         if not faf_id:
             logging.info("Couldn't find FAF username for %s", ctx.author.display_name)
             await ctx.send(f"I couldn't find your FAF username. Please set it, eg `f/set {ctx.author.username}`")
