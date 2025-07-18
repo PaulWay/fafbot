@@ -32,6 +32,12 @@ spec_game_start_messages = [
 ]
 privileged_players = ['PaulWay', 'Millenwise', 'Angelofd347h']
 
+last_game_message = """
+Player {player} - last game started at {start_date} and ended at {end_date}.
+
+URL: [https://replay.faforever.com/replay/{game_id}]
+"""
+
 sydney_tz = pytz.timezone('Australia/Sydney')
 
 # A dictionary to record who's sorting which game - key is game ID, value is
@@ -95,11 +101,11 @@ async def set(ctx, faf_username: str, discord_username: Optional[str]):
     controller; otherwise the command is ignored.  We then use the FAF API to
     get the FAF ID, and store this plus the message's guild in the database.
     """
-    logging.info(f"{ctx=}, {faf_username=}, {discord_username}")
+    logging.info(f"set({ctx=}, {faf_username=}, {discord_username=})")
     if discord_username is not None:
         if ctx.author.display_name not in privileged_players:
             logging.warn(f"User {ctx.author.display_name} not allowed to f/set a Discord username")
-            await ctx.send("No, I don't think I need to take order from you, indeed!")
+            await ctx.send("I don't think I need to take orders from you, indeed not!")
             return
     else:
         discord_username = ctx.author.display_name
@@ -145,6 +151,48 @@ async def who(ctx, player: Optional[str]):
 Player {details['attributes']['login']} joined at {created_at}
 They last logged in at {updated_at}
     """)
+
+
+@brackman.command(description="Details of a player's last game")
+async def lastgame(ctx, player: Optional[str]):
+    """
+    Get the details of the last game a user played, and display them including
+    the URL to the replay.
+    """
+    # Some duplication here of the f/sort code to find a player's last game.
+    if not player:
+        player = ctx.author.display_name
+    logging.info("Received f/lastgame from %s for %s", ctx.author.display_name, player)
+
+    # Get the person's FAF ID
+    db_user = db_get_user(discord_id=ctx.author.id)
+    logging.info(
+        "Got DB data %s for %s[%s]", db_user, ctx.author.display_name, ctx.author.id)
+    if db_user:
+        faf_id = db_user['faf_id']
+    else:
+        # Try searching FAF for the username
+        faf_id = faf_get_id_of_user(player)
+        if not faf_id:
+            logging.info("Couldn't find FAF username for %s", player)
+            await ctx.send(f"I couldn't find the FAF username for `{player}` - they may need to set it via `f/set`")
+            return
+        if player == ctx.author.display_name:
+            db_user = db_set_user(
+                faf_id, player, ctx.guild.id, ctx.author.id,
+                ctx.author.display_name
+            )
+
+    # Get the last game for that ID
+    game = faf_get_last_game_for_faf_id(faf_id)
+    if not game:
+        logging.info("Player %s[%s] not in any game", db_user['faf_username'], faf_id)
+        await ctx.send(f"I couldn't find {player} in any games on FAF, indeed!")
+        return
+    await ctx.send(last_game_message.format(
+        player=player, gamename=game['attributes']['name'],
+        end_date=game['attributes']['endTime']
+    ))
 
 
 async def send_game_start_message(ctx, game):
@@ -262,7 +310,7 @@ async def sort(ctx, discord_username: Optional[str]):
     Sort the players in the game the user is in into team voice channels.
     """
     logging.info("Received f/sort from %s", ctx.author.display_name)
-    
+
     if discord_username and ctx.author.display_name not in privileged_players:
         await ctx.reply("I'm afraid you are not that special, my child!")
         return
@@ -320,7 +368,7 @@ async def sort(ctx, discord_username: Optional[str]):
             )
             return
         games_being_sorted[game_id] = ctx.author.display_name
-    
+
     await send_game_start_message(ctx, game)
 
     # This adds Discord ID data into the game['players'] structure
