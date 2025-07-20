@@ -43,12 +43,16 @@ def faf_get_player_for_user(faf_username):
     global api
     logging.info("got to faf_get_player_for_user(%s)", faf_username)
     name = requests.utils.quote(faf_username)
-    path = f"player?filter=login=={name}&page[size]=1"  # &include=playerStats"
+    path = f"player?filter=login=={name}&page[size]=1&include=names"
     resp = api.get(path)
     # logging.info("Received %s on get ID of %s: %s", resp.status_code, name, resp.content.decode())
     if resp.status_code != 200:
         logging.warn("Received %s on get ID of %s: %s", resp.status_code, name, resp.content.decode())
-        return None
+        # Try looking for a name change...
+        path = f"player?filter=names.name=={name}&page[size]=1&include=names"
+        resp = api.get(path)
+        if resp.status_code != 200:
+            return None
     # data.data[0].id
     # {"data":[{"type":"player","id":"129182",...], ...}
     player = resp.json()
@@ -101,7 +105,7 @@ def faf_game_data_get_host_name(faf_data):
     data['included'][]['type'] == 'player':
       ['id'] == host_id:
         ['attributes']['login'] -> host_name
-    
+
     If this fails, return 'someone'.
     """
     host_name = 'someone'
@@ -220,7 +224,7 @@ def faf_get_last_game_for_faf_id(faf_id):
         logging.warn("Received %s on game for %s: %s", resp.status_code, faf_id, resp.content.decode())
     # logging.info("Game data for FAF id %s = %s", faf_id, resp.json())
     jsondata = resp.json()
-    if 'data' in jsondata and len(jsondata['data']) > 0 and 'id' in jsondata['data'][0]: 
+    if 'data' in jsondata and len(jsondata['data']) > 0 and 'id' in jsondata['data'][0]:
         game_id = jsondata['data'][0]['id']
         with open(f"/tmp/game_{game_id}.json", 'w') as fh:
             fh.write(resp.content.decode())
