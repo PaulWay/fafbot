@@ -48,11 +48,7 @@ def faf_get_player_for_user(faf_username):
     # logging.info("Received %s on get ID of %s: %s", resp.status_code, name, resp.content.decode())
     if resp.status_code != 200:
         logging.warn("Received %s on get ID of %s: %s", resp.status_code, name, resp.content.decode())
-        # Try looking for a name change...
-        path = f"player?filter=names.name=={name}&page[size]=1&include=names"
-        resp = api.get(path)
-        if resp.status_code != 200:
-            return None
+        return None
     # data.data[0].id
     # {"data":[{"type":"player","id":"129182",...], ...}
     player = resp.json()
@@ -62,8 +58,19 @@ def faf_get_player_for_user(faf_username):
         return None
     if len(player['data']) == 0:
         # Not found
-        logging.error("Returned data had no listed data: %s", player)
-        return None
+        # Try looking for a name change...
+        path = f"player?filter=names.name=={name}&page[size]=1&include=names"
+        resp = api.get(path)
+        if resp.status_code != 200:
+            logging.warn("Received %s on get a name of %s: %s", resp.status_code, name, resp.content.decode())
+            return None
+        player = resp.json()
+        if 'data' not in player:
+            logging.error("Returned JSON had no 'data': %s", player)
+            return None
+        if len(player['data']) == 0:
+            logging.error("Returned data had no listed data: %s", player)
+            return None
     if 'type' in player['data'][0] and player['data'][0]['type'] == 'player':
         return player['data'][0]
     else:
