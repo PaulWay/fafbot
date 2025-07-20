@@ -154,7 +154,7 @@ async def who(ctx, player: Optional[str]):
         "I've seen them before, yes!" if db_details else "I believe I do not recognise them!"
     )
     await ctx.reply(f"""
-Player {details['attributes']['login']} joined at {created_at}
+Player {player} joined at {created_at}
 They last logged in at {updated_at}
 {sorted_before}
     """)
