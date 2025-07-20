@@ -134,16 +134,29 @@ async def who(ctx, player: Optional[str]):
     """
     if not player:
         player = ctx.author.display_name
-    details = faf_get_player_for_user(player)
-    if not details:
+    # Find out what the database knows
+    db_details = db_get_user(faf_username=player)
+    if db_details is None:
+        db_details = db_get_user(discord_username=player)
+    # Might still be None here...
+    if db_details is not None:
+        # We want a better guess of the FAF username for this player:
+        player = db_details['faf_username']
+    # Find out what FAF knows
+    faf_details = faf_get_player_for_user(player)
+    if not faf_details:
         await ctx.reply(f"You must be mistaken, FAF does not know a player called `{player}`")
         return
     # logging.info("Got player details: %s", player)
-    created_at = datetime.datetime.fromisoformat(details['attributes']['createTime']).astimezone(sydney_tz)
-    updated_at = datetime.datetime.fromisoformat(details['attributes']['updateTime']).astimezone(sydney_tz)
+    created_at = datetime.datetime.fromisoformat(faf_details['attributes']['createTime']).astimezone(sydney_tz)
+    updated_at = datetime.datetime.fromisoformat(faf_details['attributes']['updateTime']).astimezone(sydney_tz)
+    sorted_before = (
+        "I've seen them before, yes!" if db_details else "I believe I do not recognise them!"
+    )
     await ctx.reply(f"""
 Player {details['attributes']['login']} joined at {created_at}
 They last logged in at {updated_at}
+{sorted_before}
     """)
 
 
@@ -262,7 +275,7 @@ async def sort(ctx, discord_username: Optional[str]):
     Sort the players in the game the user is in into team voice channels.
     """
     logging.info("Received f/sort from %s", ctx.author.display_name)
-    
+
     if discord_username and ctx.author.display_name not in privileged_players:
         await ctx.reply("I'm afraid you are not that special, my child!")
         return
@@ -320,7 +333,7 @@ async def sort(ctx, discord_username: Optional[str]):
             )
             return
         games_being_sorted[game_id] = ctx.author.display_name
-    
+
     await send_game_start_message(ctx, game)
 
     # This adds Discord ID data into the game['players'] structure
